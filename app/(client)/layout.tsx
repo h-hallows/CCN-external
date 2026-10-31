@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getPortalSession } from '@/lib/session';
+import { databaseAvailable } from '@/lib/availability';
+import { Unavailable } from '@/components/Unavailable';
 import { Wrap } from '@/components/layout';
 import { DISPLAY_NAME } from '@/lib/brand';
 
@@ -10,6 +12,10 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 export default async function ClientLayout({ children }: { children: React.ReactNode }) {
+  // Guards everything beneath it, so no portal page has to repeat the check.
+  const available = await databaseAvailable();
+  if (!available.ok) return <Unavailable what="Your portal" />;
+
   const session = await getPortalSession();
   if (!session) redirect('/login');
   if (session.role !== 'household') redirect(session.role === 'provider' ? '/pro' : '/login');

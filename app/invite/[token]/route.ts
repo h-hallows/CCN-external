@@ -10,6 +10,7 @@ import { redirect } from 'next/navigation';
 import type { NextRequest } from 'next/server';
 import { getDb } from '@h-hallows/core/db';
 import { hashToken, startSession } from '@/lib/session';
+import { databaseAvailable } from '@/lib/availability';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +19,11 @@ export async function GET(
   { params }: { params: Promise<{ token: string }> },
 ): Promise<void> {
   const { token } = await params;
+
+  // An invite link that 500s looks like a broken invite. Send them somewhere that
+  // explains itself, and leave the invite unconsumed so the link still works later.
+  if (!(await databaseAvailable()).ok) redirect('/login');
+
   const { query } = await getDb();
 
   // Single use, unexpired, unrevoked. Claimed in the same statement that reads it, so

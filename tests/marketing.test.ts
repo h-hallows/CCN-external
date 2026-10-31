@@ -234,3 +234,38 @@ describe('the marketing site deploys without a database', () => {
     expect(page).toContain('services.length === 0');
   });
 });
+
+describe('the site stays up when the database does not', () => {
+  const guarded = [
+    ['app/login/page.tsx', 'signing in'],
+    ['app/(client)/layout.tsx', 'the client portal'],
+    ['app/invite/[token]/route.ts', 'an invite link'],
+  ] as const;
+
+  it.each(guarded)('%s checks the database before using it', (file) => {
+    expect(read(join(ROOT, file))).toContain('databaseAvailable');
+  });
+
+  it('shows something a visitor can act on rather than a 500', () => {
+    const c = read(join(ROOT, 'components/Unavailable.tsx'));
+    expect(c).toMatch(/temporarily unavailable/i);
+    expect(c).toMatch(/call us/i);
+  });
+
+  it('names no cause — a public page is not where that belongs', () => {
+    const c = read(join(ROOT, 'components/Unavailable.tsx'));
+    for (const leak of ['DATABASE_URL', 'Postgres', 'connection', 'ECONNREFUSED']) {
+      expect(c, `the unavailable page leaks "${leak}"`).not.toContain(leak);
+    }
+  });
+
+  it('has a health route that reports configuration by name, never by value', () => {
+    const h = read(join(ROOT, 'app/api/health/route.ts'));
+    expect(h).toContain('databaseAvailable');
+    expect(h).toContain('brandBlockers');
+    expect(h).toContain('noindex');
+    // Names only. None of these may be interpolated into the response.
+    expect(h).not.toContain('process.env.DATABASE_URL');
+    expect(h).not.toContain('LEGAL_NAME,');
+  });
+});

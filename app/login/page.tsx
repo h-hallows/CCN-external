@@ -4,6 +4,8 @@ import type { Metadata } from 'next';
 import { getDb } from '@h-hallows/core/db';
 import { getPortalSession, hashToken, newToken } from '@/lib/session';
 import { rateLimit } from '@/lib/rateLimit';
+import { databaseAvailable } from '@/lib/availability';
+import { Unavailable } from '@/components/Unavailable';
 
 export const metadata: Metadata = { title: 'Sign in', robots: { index: false } };
 export const dynamic = 'force-dynamic';
@@ -11,6 +13,9 @@ export const dynamic = 'force-dynamic';
 export default async function Login({
   searchParams,
 }: { searchParams: Promise<{ sent?: string; error?: string }> }) {
+  const available = await databaseAvailable();
+  if (!available.ok) return <Unavailable what="Signing in" />;
+
   const existing = await getPortalSession();
   if (existing) redirect(existing.role === 'provider' ? '/pro' : '/portal');
   const params = await searchParams;
