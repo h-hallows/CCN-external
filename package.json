@@ -12,7 +12,8 @@
     "test": "vitest run",
     "lint:copy": "ccn-lint ./app ./components ./content",
     "pretest": "npm run lint:copy && npm run lint:brand",
-    "lint:brand": "node ../../scripts/brand-lint.mjs ./app ./components ./content ./lib"
+    "lint:brand": "node scripts/brand-lint.mjs ./app ./components ./content ./lib",
+    "ci": "npm run lint:copy && npm run lint:brand && npm run typecheck && npm run test"
   },
   "dependencies": {
     "@ccn/core": "0.1.0",
