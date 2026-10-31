@@ -218,3 +218,19 @@ describe('W4 — robots, sitemap and the advertising record', () => {
     expect(script).toContain('exit(0)');
   });
 });
+
+describe('the marketing site deploys without a database', () => {
+  it('pricing degrades to its empty state rather than failing the build', () => {
+    const rates = readFileSync(join(ROOT, 'lib/rates.ts'), 'utf8');
+    // /pricing is prerendered, so a throw in this query fails the whole build. A
+    // marketing site that cannot deploy because the rates table blipped is worse than
+    // one that says "call us" until the next revalidation.
+    expect(rates).toMatch(/try\s*\{[\s\S]*catch/);
+    expect(rates).toContain('return [];');
+  });
+
+  it('the pricing page has that empty state to fall back to', () => {
+    const page = readFileSync(join(ROOT, 'app/(marketing)/pricing/page.tsx'), 'utf8');
+    expect(page).toContain('services.length === 0');
+  });
+});

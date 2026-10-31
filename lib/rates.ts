@@ -39,7 +39,24 @@ export const CREDENTIAL_ORDER: CredentialLevel[] = ['companion', 'hca', 'cna', '
  * The ranges in force today. Only the newest row per service and level whose
  * effective_from has arrived — a future-dated change is posted but not yet live.
  */
+/**
+ * Returns [] rather than throwing when the database is unreachable.
+ *
+ * The pricing page is prerendered, so a throw here fails the build — and a marketing
+ * site that cannot deploy because the rates table blipped is a worse outcome than one
+ * that says "call us for current ranges" for an hour until the next revalidation. The
+ * page has that empty state already.
+ */
 export async function currentRateRanges(serviceKey?: string): Promise<RateRange[]> {
+  try {
+    return await fetchRateRanges(serviceKey);
+  } catch (err) {
+    console.error('[rates] could not read rate_ranges; rendering the empty state', err);
+    return [];
+  }
+}
+
+async function fetchRateRanges(serviceKey?: string): Promise<RateRange[]> {
   const { query } = await getDb();
   const rows = await query<{
     service_key: string; credential_level: string; low: string; high: string; note: string | null;
