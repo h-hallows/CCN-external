@@ -212,7 +212,7 @@ describe('W4 — robots, sitemap and the advertising record', () => {
   });
 
   it('has a recorder CI can run, which never fails a deploy', () => {
-    const script = readFileSync(join(ROOT, '../../scripts/record-advertisement.mjs'), 'utf8');
+    const script = readFileSync(join(ROOT, 'scripts/record-advertisement.mjs'), 'utf8');
     expect(script).toContain('advertising_log');
     // § 1812.533(c) bookkeeping must not be able to block a release.
     expect(script).toContain('exit(0)');

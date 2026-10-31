@@ -16,7 +16,7 @@
     "ci": "npm run lint:copy && npm run lint:brand && npm run typecheck && npm run test"
   },
   "dependencies": {
-    "@h-hallows/core": "0.1.0",
+    "@h-hallows/core": "github:h-hallows/CCN-core#v0.1.3",
     "drizzle-orm": "^0.36.4",
     "next": "^15.1.6",
     "react": "^19.0.0",

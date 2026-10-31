@@ -63,3 +63,27 @@ jobs:
             exit 1
           fi
           echo "ok: this repository consumes the schema, it does not own it"
+
+  # § 1812.533(c): a record of every advertisement, with date and publication, kept one
+  # year. A website is an advertisement and it changes every deploy.
+  record-advertisement:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Record this deploy as an advertisement
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "No DATABASE_URL secret; skipping. Set it so the § 1812.533(c) log is kept."
+            exit 0
+          fi
+          node scripts/record-advertisement.mjs --publication website \
+            --reference "$GITHUB_SHA" --recorded-by ci
