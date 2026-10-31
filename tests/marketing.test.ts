@@ -253,9 +253,11 @@ describe('the site stays up when the database does not', () => {
   });
 
   it('names no cause — a public page is not where that belongs', () => {
-    const c = read(join(ROOT, 'components/Unavailable.tsx'));
+    // The comment explains the rule and may use the words; the rendered page may not.
+    const rendered = read(join(ROOT, 'components/Unavailable.tsx'))
+      .replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
     for (const leak of ['DATABASE_URL', 'Postgres', 'connection', 'ECONNREFUSED']) {
-      expect(c, `the unavailable page leaks "${leak}"`).not.toContain(leak);
+      expect(rendered, `the unavailable page leaks "${leak}"`).not.toContain(leak);
     }
   });
 
