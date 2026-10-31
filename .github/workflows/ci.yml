@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          registry-url: https://npm.pkg.github.com
+          scope: '@h-hallows'
+
+      - run: npm ci
+        env:
+          # Read-only PAT with read:packages. @h-hallows/core lives in GitHub Packages.
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_PACKAGES_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_PACKAGES_TOKEN }}
+
+      # I9 and the forbidden identifiers. The statutory directory is excepted for the
+      # statutory phrases only; the advertising bans hold even there.
+      - name: Copy lint
+        run: npm run lint:copy
+
+      # The trading name is blocked on counsel, so nothing may hardcode one.
+      - name: Brand lint
+        run: npm run lint:brand
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  # This repository is a consumer. The schema has exactly one owner, in CCN-Registry.
+  migrations-have-one-owner:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: No migrations, no drizzle-kit, no second credential engine
+        run: |
+          set -e
+          if [ -d migrations ]; then
+            echo "A migrations directory exists. Migrations belong to @h-hallows/core."
+            exit 1
+          fi
+          if grep -q '"drizzle-kit"' package.json; then
+            echo "drizzle-kit is a dependency. Only @h-hallows/core may generate migrations."
+            exit 1
+          fi
+          if grep -rq 'export function eligibility' app components lib 2>/dev/null; then
+            echo "A local eligibility() exists. There must be exactly one, in core."
+            exit 1
+          fi
+          echo "ok: this repository consumes the schema, it does not own it"
