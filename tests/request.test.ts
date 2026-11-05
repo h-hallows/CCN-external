@@ -12,16 +12,13 @@
  * These run through the real action, which runs through `asPortalUser`, which drops to
  * the non-owning `ccn_app` role. Without that the policies would be present and inert.
  */
-import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { ROOT, code, reachableFrom, walk } from './importGraph';
 import type { DbHandle } from '@h-hallows/core/db';
 import { seededDb } from '@h-hallows/core/testing';
 import { requestProvider, openRequestFor } from '@/lib/request';
 import type { PortalSession } from '@/lib/session';
-
-const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
 let db: DbHandle;
 let ours: PortalSession;
@@ -275,62 +272,27 @@ describe('what the action refuses', () => {
 // The static gate. § 11: no code path from (client) reaches referrals.
 // ---------------------------------------------------------------------------
 
-/** Comments stripped, so a comment that explains the rule is not read as breaking it. */
-function code(file: string): string {
-  return readFileSync(file, 'utf8')
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
-}
-
-function resolveImport(spec: string, from: string): string | null {
-  let base: string;
-  if (spec.startsWith('@/')) base = path.join(ROOT, spec.slice(2));
-  else if (spec.startsWith('.')) base = path.resolve(path.dirname(from), spec);
-  // A bare specifier is a package. The boundary is the point: @h-hallows/core owns the
-  // database and the console writes referrals through it. What matters is whether
-  // anything reachable from (client) calls into that.
-  else return null;
-
-  for (const candidate of [
-    base, `${base}.ts`, `${base}.tsx`,
-    path.join(base, 'index.ts'), path.join(base, 'index.tsx'),
-  ]) {
-    try {
-      if (statSync(candidate).isFile()) return candidate;
-    } catch { /* next candidate */ }
-  }
-  return null;
-}
-
-function walk(dir: string): string[] {
-  const out: string[] = [];
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) out.push(...walk(full));
-    else if (/\.tsx?$/.test(entry.name)) out.push(full);
-  }
-  return out;
-}
-
 /** Every module reachable from `app/(client)`, transitively, stopping at packages. */
 function clientReachable(): string[] {
-  const seen = new Set<string>();
-  const queue = walk(path.join(ROOT, 'app', '(client)'));
-  const specs = /(?:from|import)\s*\(?\s*['"]([^'"]+)['"]/g;
-
-  while (queue.length > 0) {
-    const file = queue.pop()!;
-    if (seen.has(file)) continue;
-    seen.add(file);
-    for (const match of code(file).matchAll(specs)) {
-      const next = resolveImport(match[1]!, file);
-      if (next && !seen.has(next)) queue.push(next);
-    }
-  }
-  return [...seen];
+  return reachableFrom(walk(path.join(ROOT, 'app', '(client)')));
 }
 
 const RESTRICTED = ['referrals', 'timeline_entries', 'disclosures'];
+
+/**
+ * Matches the table being QUERIED, not the English word.
+ *
+ * The first version of this matched the bare word and tripped on
+ * content/statutory/nurses-registry-disclosure.ts, which contains "referrals" because
+ * the statute does. Exempting that file would have been the wrong fix: the invariant
+ * is about reaching the table, so the matcher should describe reaching the table.
+ */
+function touches(table: string): RegExp {
+  return new RegExp(
+    String.raw`\b(?:from|join|into|update|delete\s+from)\s+(?:only\s+)?"?${table}"?\b`,
+    'i',
+  );
+}
 
 describe('no code path from (client) reaches the referral record', () => {
   const reachable = clientReachable();
@@ -356,23 +318,62 @@ describe('no code path from (client) reaches the referral record', () => {
     }
   });
 
-  it('does not so much as name them', () => {
-    // The strong form, and correct for W6 because nothing in (client) has any business
-    // with these tables yet.
-    //
-    // W7 relaxes exactly one half of this: /portal/feedback/[referralId] reads one
-    // referral belonging to the household. When that lands, this assertion narrows to a
-    // read-only allowance for that route and the write assertion above becomes the
-    // permanent gate. Relaxing it is a decision to take deliberately, which is why it
-    // fails loudly rather than being scoped loosely now.
+  it('reads them only from the two modules entitled to, and nowhere else', () => {
+    /*
+     * W6 asserted the strong form: nothing reachable from app/(client) so much as
+     * named these tables. W7 narrows it, deliberately and exactly twice.
+     *
+     *   lib/feedback.ts   reads ONE referral, to confirm it belongs to this household
+     *                     before taking feedback on it. § 4.1,
+     *                     /portal/feedback/[referralId]. `referrals_household_select`
+     *                     already grants precisely that.
+     *   lib/documents.ts  reads the household's own `disclosures`, so they can see
+     *                     which statutory documents they have had and when. A record
+     *                     its subject can check is a stronger record than one only the
+     *                     registry holds.
+     *
+     * Everything else is still refused, and the write gate above is untouched and
+     * permanent. This list is the point of the test: adding a third reader fails here,
+     * which is where that decision should be taken rather than in a diff nobody
+     * reviewed.
+     */
+    const MAY_READ: Record<string, readonly string[]> = {
+      'lib/feedback.ts': ['referrals'],
+      'lib/documents.ts': ['disclosures'],
+    };
+
     for (const file of reachable) {
+      const relative = path.relative(ROOT, file);
+      const allowed = MAY_READ[relative] ?? [];
       const src = code(file);
       for (const table of RESTRICTED) {
+        if (allowed.includes(table)) continue;
         expect(
-          new RegExp(String.raw`\b${table}\b`).test(src),
-          `${path.relative(ROOT, file)} names ${table}`,
+          touches(table).test(src),
+          `${relative} queries ${table}, and is not on the list of modules that may`,
         ).toBe(false);
       }
+    }
+  });
+
+  it('the allowance is real — those two modules are reachable and do read', () => {
+    // Guards the allowance. If feedback.ts fell out of the graph, the exemption above
+    // would be dead text and the next reader would trust a gate that checks nothing.
+    const relative = reachable.map((f) => path.relative(ROOT, f));
+    expect(relative).toContain('lib/feedback.ts');
+    expect(relative).toContain('lib/documents.ts');
+    expect(touches('referrals').test(code(path.join(ROOT, 'lib/feedback.ts')))).toBe(true);
+    expect(touches('disclosures').test(code(path.join(ROOT, 'lib/documents.ts')))).toBe(true);
+  });
+
+  it('neither of them writes, which is the gate that does not move', () => {
+    const write = new RegExp(
+      String.raw`\b(?:insert\s+into|update|delete\s+from)\s+(?:only\s+)?"?(${RESTRICTED.join('|')})"?\b`,
+      'i',
+    );
+    for (const rel of ['lib/feedback.ts', 'lib/documents.ts']) {
+      expect(write.exec(code(path.join(ROOT, rel))), `${rel} writes to a statutory table`)
+        .toBeNull();
     }
   });
 });

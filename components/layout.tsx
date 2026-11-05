@@ -25,14 +25,20 @@ export function Stack({ children, gap = 'md' }: { children: ReactNode; gap?: 'sm
   return <div style={{ display: 'flex', flexDirection: 'column', gap: rem }}>{children}</div>;
 }
 
-/** A titled section. The heading level is explicit so pages keep a sane outline. */
+/**
+ * A titled section. The heading level is explicit so pages keep a sane outline.
+ *
+ * h1 is allowed because the portal screens are a section that IS the page — their one
+ * title is the document's title. A screen reader given a page whose highest heading is
+ * an h2 has to guess what it is looking at.
+ */
 export function Section({
   title, label, children, as: As = 'h2',
 }: {
   title?: string;
   label?: string;
   children: ReactNode;
-  as?: 'h2' | 'h3';
+  as?: 'h1' | 'h2' | 'h3';
 }) {
   return (
     <section style={{ paddingBlock: '2.5rem' }}>

@@ -11,6 +11,18 @@ import { DISPLAY_NAME } from '@/lib/brand';
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
+/*
+ * Plain words, in the order a household needs them. No icons and no counts: a badge
+ * saying "2" next to Requests turns a family's care into a queue to clear.
+ */
+const NAV = [
+  { href: '/portal', label: 'Your short list' },
+  { href: '/portal/schedule', label: 'Schedule' },
+  { href: '/portal/requests', label: 'Requests' },
+  { href: '/portal/profile', label: 'About your household' },
+  { href: '/portal/documents', label: 'Documents' },
+];
+
 export default async function ClientLayout({ children }: { children: React.ReactNode }) {
   // Guards everything beneath it, so no portal page has to repeat the check.
   const available = await databaseAvailable();
@@ -33,6 +45,16 @@ export default async function ClientLayout({ children }: { children: React.React
             }}>
               {DISPLAY_NAME}
             </Link>
+            <nav style={{
+              display: 'flex', flexWrap: 'wrap', gap: '1.1rem',
+              fontSize: 'var(--step--1)',
+            }}>
+              {NAV.map((item) => (
+                <Link key={item.href} href={item.href} style={{ color: 'var(--ink-2)' }}>
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
             <span className="label" style={{ marginLeft: 'auto' }}>{session.displayName}</span>
           </div>
         </Wrap>

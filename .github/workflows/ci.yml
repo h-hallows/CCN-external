@@ -24,6 +24,13 @@ jobs:
       # the repository owner, and the package was never published there. The secret did
       # not exist, npm ci ignored the registry setting for a git dependency, and the
       # build passed for a reason unrelated to the configuration.
+      # npm records a GitHub git dependency in package-lock.json as git+ssh://, whatever
+      # package.json says, and CI has no SSH key. This makes git use https for
+      # github.com regardless, so `npm ci` resolves @h-hallows/core from the public
+      # repository with no credentials at all. Harmless if npm ever stops doing it.
+      - name: Resolve github git dependencies over https
+        run: git config --global url."https://github.com/".insteadOf git@github.com:
+
       - run: npm ci
 
       # I9 and the forbidden identifiers. The statutory directory is excepted for the

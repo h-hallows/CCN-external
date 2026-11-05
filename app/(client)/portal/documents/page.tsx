@@ -1,0 +1,118 @@
+import { redirect } from 'next/navigation';
+import { getPortalSession } from '@/lib/session';
+import { NOT_YET_IN_THE_PORTAL, caseDocuments } from '@/lib/documents';
+import { Prose, Section, Stack } from '@/components/layout';
+
+export const dynamic = 'force-dynamic';
+
+const CARE_LABEL: Record<string, string> = {
+  companion: 'Companionship',
+  personal_care: 'Personal care',
+  skilled_nursing: 'Skilled nursing',
+  post_surgical: 'Post-surgical recovery',
+  overnight_newborn: 'Overnight newborn care',
+  respite: 'Respite',
+  hospice_support: 'Hospice support',
+};
+
+export default async function Documents() {
+  const session = await getPortalSession();
+  if (!session) redirect('/login');
+  const cases = await caseDocuments(session);
+
+  if (cases.length === 0) {
+    return (
+      <Section title="Your documents" as="h1">
+        <Prose>
+          <p>Documents will appear here as your engagement is set up.</p>
+        </Prose>
+      </Section>
+    );
+  }
+
+  return (
+    <Stack gap="lg">
+      {cases.map((c) => (
+        <Section
+          key={c.caseId}
+          label={CARE_LABEL[c.care] ?? c.care}
+          title="Your documents"
+          as="h1"
+        >
+          <Prose>
+            <p style={{ color: 'var(--ink-2)' }}>
+              The law requires us to give you certain things in writing, by certain
+              dates. This is what you have had and when, with the text itself so you
+              are not relying on us to describe it.
+            </p>
+          </Prose>
+
+          <div style={{ marginTop: '1.5rem' }}>
+            {c.documents.map((d) => (
+              <article
+                key={d.key}
+                style={{
+                  borderTop: '1px solid var(--line)',
+                  paddingBlock: '1.25rem',
+                  maxWidth: 'var(--measure)',
+                }}
+              >
+                <div style={{
+                  display: 'flex', flexWrap: 'wrap', gap: '.4rem 1rem', alignItems: 'baseline',
+                }}>
+                  <h2 style={{ fontSize: 'var(--step-0)', margin: 0 }}>{d.label}</h2>
+                  <span className="label nums" style={{ marginLeft: 'auto' }}>
+                    {d.state === 'delivered'
+                      ? <>sent {d.on}</>
+                      : <>due {d.on ?? 'before care starts'}</>}
+                  </span>
+                </div>
+
+                <p style={{ margin: '.4rem 0 0', fontSize: 'var(--step--1)', color: 'var(--ink-2)' }}>
+                  {d.plainly}
+                </p>
+
+                {/*
+                  * The text as it stood when it was delivered, identified by version.
+                  * A record that cannot say WHICH wording was given is a weaker record
+                  * than one that can, and the household is the party best placed to
+                  * notice if it is wrong.
+                  */}
+                <details style={{ marginTop: '.75rem' }}>
+                  <summary style={{ cursor: 'pointer', fontSize: 'var(--step--1)' }}>
+                    Read it
+                  </summary>
+                  <div style={{
+                    marginTop: '.75rem', padding: '1rem',
+                    border: '1px solid var(--line)', background: 'var(--surface)',
+                    whiteSpace: 'pre-wrap', fontSize: 'var(--step--1)',
+                  }}>
+                    {d.text}
+                  </div>
+                  <p className="label" style={{ marginTop: '.5rem' }}>
+                    {d.citation} · version {d.version}
+                  </p>
+                </details>
+              </article>
+            ))}
+          </div>
+
+          {/*
+            * § 4.1 lists three more. Nothing models a document of any kind yet, and
+            * saying so is better than a screen that silently implies this is all there
+            * is to your file.
+            */}
+          <Prose>
+            <p style={{
+              marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid var(--line)',
+              fontSize: 'var(--step--1)', color: 'var(--ink-3)',
+            }}>
+              Not here yet: {NOT_YET_IN_THE_PORTAL.join(', ')}. Ask us and we will send
+              them to you directly while we build that part.
+            </p>
+          </Prose>
+        </Section>
+      ))}
+    </Stack>
+  );
+}

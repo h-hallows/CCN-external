@@ -164,3 +164,74 @@ export async function requestProvider(
 
   return { ok: true, requestId: written.id, alreadyAsked: !written.fresh };
 }
+
+/**
+ * Every request this household has made. Web build spec § 4.1, /portal/requests.
+ *
+ * Deliberately includes requests against a shortlist the operator has since withdrawn:
+ * `shortlist_requests_household_select` passes require_live = false precisely so a
+ * household's own history does not vanish when a bench is taken down. The provider
+ * names survive it too, under migration 0007.
+ */
+export interface HouseholdRequest {
+  requestId: string;
+  providerName: string;
+  requestedOn: string;
+  status: string;
+  note: string | null;
+  /** Set once the request has become a referral, so the feedback form can be offered. */
+  referralId: string | null;
+}
+
+export async function householdRequests(
+  session: PortalSession,
+): Promise<HouseholdRequest[]> {
+  if (!session.householdId) return [];
+  return asPortalUser(session, async (tx) => {
+    const rows = await tx.query<{
+      id: string; requested_at: string; status: string; note: string | null;
+      referral_id: string | null; full_name: string | null;
+    }>(
+      `SELECT r.id, r.requested_at::text, r.status::text AS status, r.note,
+              r.referral_id, p.full_name
+         FROM shortlist_requests r
+         LEFT JOIN providers p ON p.id = r.provider_id
+        ORDER BY r.requested_at DESC`,
+    );
+    return rows.map((r) => ({
+      requestId: r.id,
+      providerName: r.full_name ?? 'A provider we put forward',
+      requestedOn: r.requested_at.slice(0, 10),
+      status: r.status,
+      note: r.note,
+      referralId: r.referral_id,
+    }));
+  });
+}
+
+/**
+ * The status in the household's words.
+ *
+ * "Referred" is the strongest word available and it is still not "booked", "confirmed"
+ * or "placed" — it means an introduction was made after a conversation, which is the
+ * whole of what a registry does. § 4.1 bans the other three outright and a test
+ * asserts it.
+ */
+export const REQUEST_STATUS: Record<string, { label: string; detail: string }> = {
+  pending: {
+    label: 'Requested',
+    detail: 'We have it and we will call you.',
+  },
+  referred: {
+    label: 'Introduced',
+    detail: 'We made the introduction after speaking with you.',
+  },
+  declined_by_household: {
+    label: 'You decided against it',
+    detail: 'No further action, and it is not a problem.',
+  },
+  withdrawn: {
+    label: 'Withdrawn',
+    detail: 'This one is no longer going ahead.',
+  },
+};
