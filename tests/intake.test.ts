@@ -234,7 +234,20 @@ describe('§ 3.3 — a public submission creates no live record', () => {
 });
 
 describe('§ 10 — no code path from the front door reaches the compliance record', () => {
-  const FORBIDDEN_TABLES = ['referrals', 'timeline_entries', 'disclosures', 'audit_log'];
+  /*
+   * `referrals`, `disclosures` and `audit_log` are absolute: nothing in this
+   * application may write to them, in any circumstances. A referral is a statutory
+   * event that only the console's disclosure transaction may create.
+   *
+   * `timeline_entries` is not on that list any more, and the reason is written out in
+   * the second test below rather than left as an omission. W9 gave providers one
+   * permitted write to it, which architecture spec § 6.4 requires and migration 0003's
+   * `timeline_provider_insert` policy was added to allow.
+   */
+  const FORBIDDEN_TABLES = ['referrals', 'disclosures', 'audit_log'];
+
+  /** The one module allowed to add to a case timeline, and the only shape it may add. */
+  const TIMELINE_WRITER = 'lib/opportunities.ts';
 
   function sourceFiles(dir: string, acc: string[] = []): string[] {
     for (const name of readdirSync(dir)) {
@@ -259,5 +272,43 @@ describe('§ 10 — no code path from the front door reaches the compliance reco
       }
     }
     expect(offenders, offenders.join('\n')).toEqual([]);
+  });
+
+  it('adds to a case timeline from exactly one module, and only ever a note', () => {
+    /*
+     * Architecture spec § 6.4: a provider's answer to an opportunity is "a timeline
+     * entry on the case, author = provider" — deliberately a note rather than a column,
+     * so that declining sets no flag anything could later count. That needs one write
+     * to `timeline_entries`, and migration 0003's `timeline_provider_insert` policy
+     * exists to permit exactly it: type 'note', the provider's own provider_id, a case
+     * they were referred to.
+     *
+     * So the gate narrows from "never" to "here, and in this shape". The database
+     * refuses anything else regardless; this catches a second writer appearing in the
+     * app before anyone has to find out whether the policy covers it.
+     */
+    const root = new URL('..', import.meta.url).pathname;
+    const writes = /(INSERT INTO|UPDATE|DELETE FROM)\s+timeline_entries\b/i;
+    const writers: string[] = [];
+
+    for (const file of sourceFiles(join(root, 'app')).concat(sourceFiles(join(root, 'lib')))) {
+      const code = readFileSync(file, 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+      if (writes.test(code)) writers.push(file.replace(root, ''));
+    }
+
+    expect(writers).toEqual([TIMELINE_WRITER]);
+
+    const writer = readFileSync(join(root, TIMELINE_WRITER), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    // Insert only — never an update or a delete, because a timeline that can be
+    // rewritten is not a timeline.
+    expect(/UPDATE\s+timeline_entries\b/i.test(writer)).toBe(false);
+    expect(/DELETE FROM\s+timeline_entries\b/i.test(writer)).toBe(false);
+    // And the only type it writes is 'note'.
+    expect(writer).toContain("'note'");
+    for (const type of ['disclosure', 'referral', 'written_disclosure', 'status_change']) {
+      expect(writer, `it writes a '${type}' entry`).not.toContain(`'${type}'`);
+    }
   });
 });

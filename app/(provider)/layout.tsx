@@ -17,12 +17,14 @@ export const metadata: Metadata = { robots: { index: false, follow: false } };
  * coached, scored or ranked its providers would be managing them.
  */
 const NAV = [
-  { href: '/pro', label: 'Where you stand' },
+  { href: '/pro', label: 'Your work' },
+  { href: '/pro/engagements', label: 'Where you have worked' },
   { href: '/pro/profile', label: 'About you' },
   { href: '/pro/rate', label: 'Your rate' },
   { href: '/pro/availability', label: 'When you work' },
   { href: '/pro/limits', label: 'What you will not take' },
-  { href: '/pro/credentials', label: 'Documents' },
+  { href: '/pro/credentials', label: 'Your documents' },
+  { href: '/pro/resume', label: 'Your résumé' },
 ];
 
 export default async function ProviderLayout({ children }: { children: React.ReactNode }) {

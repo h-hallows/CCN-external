@@ -36,6 +36,19 @@ export interface ProviderSelf {
   restrictions: string | null;
   transports: boolean;
   status: string;
+  specialties: string[];
+  languages: string[];
+  areas: string[];
+  /**
+   * The state the licence is held in, never the number. A résumé reading "RN,
+   * California" is useful; a licence number on a document the provider will email
+   * around is a gift to anyone who wants to impersonate them.
+   */
+  licenseState: string | null;
+  /** Recorded when the referral agreement was signed. § 1812.5095(b)(1). */
+  agreementSignedOn: string | null;
+  /** Recorded when the § 1812.5095(d) notice was acknowledged. */
+  writtenNoticeAckOn: string | null;
 }
 
 export type SaveResult =
@@ -49,6 +62,9 @@ interface SelfRow {
   rate_hourly: string | null; rate_notes: string | null;
   availability: string[] | null; restrictions: string | null;
   transports: boolean; status: string;
+  specialties: string[] | null; languages: string[] | null; areas: string[] | null;
+  license_state: string | null;
+  agreement_signed_on: string | null; written_notice_ack_on: string | null;
 }
 
 export async function providerSelf(session: PortalSession): Promise<ProviderSelf | null> {
@@ -57,7 +73,9 @@ export async function providerSelf(session: PortalSession): Promise<ProviderSelf
     const rows = await tx.query<SelfRow>(
       `SELECT id, full_name, preferred_name, type::text AS type, bio, phone, email,
               photo_url, photo_consent_on::text, rate_hourly::text, rate_notes,
-              availability, restrictions, transports, status::text AS status
+              availability, restrictions, transports, status::text AS status,
+              specialties, languages, areas, license_state,
+              agreement_signed_on::text, written_notice_ack_on::text
          FROM providers WHERE id = $1`,
       [session.providerId],
     );
@@ -79,6 +97,12 @@ export async function providerSelf(session: PortalSession): Promise<ProviderSelf
       restrictions: r.restrictions,
       transports: r.transports,
       status: r.status,
+      specialties: r.specialties ?? [],
+      languages: r.languages ?? [],
+      areas: r.areas ?? [],
+      licenseState: r.license_state,
+      agreementSignedOn: r.agreement_signed_on,
+      writtenNoticeAckOn: r.written_notice_ack_on,
     };
   });
 }
