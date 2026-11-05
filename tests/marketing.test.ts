@@ -129,7 +129,15 @@ describe('W2 — every marketing route carries the footer and says nothing it ma
   it('gives every page a title and a description under the limits', () => {
     for (const page of marketingPages.filter((p) => p.endsWith('page.tsx'))) {
       const src = read(page);
-      expect(src, `${rel(page)} has no metadata`).toContain('export const metadata');
+      // `generateMetadata` counts as well as a static `metadata`. A page whose title
+      // depends on its params — the § 5 crossed pages — cannot use the static form,
+      // and the rule being enforced is that every page sets a title and description,
+      // not which of the two APIs it uses. The crossed pages' own lengths are checked
+      // in tests/crossed.test.ts, where the strings actually live.
+      const hasMetadata = src.includes('export const metadata')
+        || src.includes('export async function generateMetadata')
+        || src.includes('export function generateMetadata');
+      expect(hasMetadata, `${rel(page)} sets no metadata`).toBe(true);
       const title = /title:\s*'([^']+)'/.exec(src);
       if (title) expect(title[1]!.length, `${rel(page)} title`).toBeLessThanOrEqual(60);
     }
