@@ -179,3 +179,8 @@ th { font-size: var(--step--1); text-transform: uppercase; letter-spacing: .08em
   .statutory-written-statement { font-size: 11pt; line-height: 1.5; }
   .statutory { font-size: 7pt; }
 }
+
+/* A disabled control reads as unavailable, not as absent. */
+.btn:disabled, .btn[aria-disabled="true"] { opacity: .5; cursor: not-allowed; }
+.btn:disabled:hover { border-color: var(--line-2); }
+textarea:disabled { opacity: .5; cursor: not-allowed; }

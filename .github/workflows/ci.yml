@@ -15,14 +15,16 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-          registry-url: https://npm.pkg.github.com
-          scope: '@h-hallows'
 
+      # No registry auth, deliberately. @h-hallows/core is pinned to a git tag over
+      # https on a public repository, so nothing here needs a token.
+      #
+      # This used to configure GitHub Packages and pass a GITHUB_PACKAGES_TOKEN secret.
+      # That could never have worked: GitHub Packages requires the npm scope to match
+      # the repository owner, and the package was never published there. The secret did
+      # not exist, npm ci ignored the registry setting for a git dependency, and the
+      # build passed for a reason unrelated to the configuration.
       - run: npm ci
-        env:
-          # Read-only PAT with read:packages. @h-hallows/core lives in GitHub Packages.
-          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_PACKAGES_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_PACKAGES_TOKEN }}
 
       # I9 and the forbidden identifiers. The statutory directory is excepted for the
       # statutory phrases only; the advertising bans hold even there.
@@ -36,13 +38,18 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      # W6 is in here: the request-flow gates assert that no module reachable from
+      # app/(client) writes to referrals, timeline_entries or disclosures, and that no
+      # copy on the request path implies a placement was made. Web build spec § 10 names
+      # it one of the two milestones to review twice.
       - name: Tests
         run: npm test
 
       - name: Build
         run: npm run build
 
-  # This repository is a consumer. The schema has exactly one owner, in CCN-Registry.
+  # This repository is a consumer. The schema has exactly one owner: @h-hallows/core, in
+  # its own repository. Neither this app nor the console may carry a migration.
   migrations-have-one-owner:
     runs-on: ubuntu-latest
     steps:

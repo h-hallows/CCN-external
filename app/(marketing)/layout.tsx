@@ -36,7 +36,17 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
    * wrong about the remedy: it took the portals, the intake routes and the health check
    * down with the marketing pages, over a name that is waiting on a lawyer.
    */
-  if (brandBlockers().length > 0) return <NotPublished />;
+  const blockers = brandBlockers();
+  if (blockers.length > 0) {
+    // Named in the server log as well as at /api/health. Someone looking at a deployed
+    // holding page and wondering why should not have to already know which route to ask,
+    // and the holding page itself is public and says nothing.
+    console.warn(
+      `[marketing] withheld — ${blockers.length} unmet requirement(s):\n  `
+      + blockers.join('\n  '),
+    );
+    return <NotPublished />;
+  }
 
   return (
     <>

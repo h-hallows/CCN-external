@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { getPortalSession } from '@/lib/session';
 import { benchProvider } from '@/lib/portal';
+import { openRequestFor } from '@/lib/request';
+import { RequestProvider } from '@/components/RequestProvider';
 import { Prose, Section, Stack } from '@/components/layout';
 
 export const dynamic = 'force-dynamic';
@@ -35,6 +37,15 @@ export default async function ProviderProfile({
   // else's bench is not found, not forbidden — the distinction leaks less.
   const p = await benchProvider(session, id);
   if (!p) notFound();
+
+  // Separate read rather than part of the bench query: what the household already asked
+  // is theirs, and belongs under their own claims, not inside the elevated credential
+  // path the bench needs.
+  const open = await openRequestFor(session, id);
+  const firstName = p.fullName.split(' ')[0] ?? p.fullName;
+  const sectionTitle = !p.available ? 'While we check this'
+    : open ? 'You have asked about them'
+    : 'If you would like to meet them';
 
   return (
     <Stack gap="lg">
@@ -120,20 +131,44 @@ export default async function ProviderProfile({
         </Prose>
       </Section>
 
-      <Section>
+      {/*
+        * Three states, and the prose has to match the control beneath it. Copy that
+        * invites an action the page has already disabled — or that the household has
+        * already taken — reads as a site that is not paying attention, which is the
+        * last impression this one can afford.
+        */}
+      <Section title={sectionTitle} as="h2">
         <Prose>
-          {p.available ? (
+          {!p.available ? (
             <p>
-              If you would like to meet them, ask us and we will arrange it. We will go
-              through a few things with you on the phone before making the referral.
+              We will let you know as soon as this is settled. If other people would
+              help in the meantime, ask us from your short list page and we will put
+              some forward.
+            </p>
+          ) : open ? (
+            <p>
+              We will call you to go through a few things before anyone is put
+              forward. That conversation is required, and it is where you can ask us
+              the questions this page does not answer.
             </p>
           ) : (
             <p>
-              You can still ask us to call. We will tell you where this stands and put
-              other people forward if that would help.
+              Tell us you are interested and we will call you. We go through a few
+              things with you on the phone first — that conversation is required
+              before anyone is put forward, and it is where you can ask us the
+              questions this page does not answer.
             </p>
           )}
         </Prose>
+
+        <div style={{ marginTop: '1.25rem' }}>
+          <RequestProvider
+            providerId={p.providerId}
+            firstName={firstName}
+            available={p.available}
+            openedOn={open ? open.requestedAt.slice(0, 10) : null}
+          />
+        </div>
       </Section>
     </Stack>
   );

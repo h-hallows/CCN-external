@@ -47,8 +47,19 @@ beforeAll(async () => {
 
   const kase = await one<{ id: string; household_id: string }>(
     `SELECT id, household_id FROM cases WHERE status = 'active' ORDER BY created_at LIMIT 1`);
+  // Deterministic, and specifically a household with no bench of its own. An unordered
+  // LIMIT 1 would happily pick a household that another test file had given a shortlist
+  // to, and then "returns nothing to a different household" would fail for a reason
+  // that has nothing to do with what it is testing.
   const other = await one<{ id: string }>(
-    `SELECT id FROM households WHERE id <> $1 LIMIT 1`, [kase.household_id]);
+    `SELECT h.id FROM households h
+      WHERE h.id <> $1
+        AND NOT EXISTS (
+          SELECT 1 FROM published_shortlists p
+            JOIN cases c ON c.id = p.case_id
+           WHERE c.household_id = h.id)
+      ORDER BY h.created_at, h.id
+      LIMIT 1`, [kase.household_id]);
 
   ours = await makeHousehold('ours@example.com', kase.household_id);
   theirs = await makeHousehold('theirs@example.com', other.id);

@@ -10,7 +10,7 @@ export default defineConfig({
     hookTimeout: 60_000,
     pool: 'forks',
     poolOptions: { forks: { singleFork: true } },
-    server: { deps: { inline: [/@ccn\/core/] } },
+    server: { deps: { inline: [/@h-hallows\/core/] } },
   },
   resolve: { alias: { '@': fileURLToPath(new URL('.', import.meta.url)) } },
 });
