@@ -5,6 +5,7 @@ import { getPortalSession } from '@/lib/session';
 import { databaseAvailable } from '@/lib/availability';
 import { Unavailable } from '@/components/Unavailable';
 import { Wrap } from '@/components/layout';
+import { signOut } from '@/app/signOut';
 import { DISPLAY_NAME } from '@/lib/brand';
 
 /** Invite-only, dynamic, never indexed. Spec § 4.3 and § 6.2. */
@@ -42,6 +43,18 @@ export default async function PartnerLayout({ children }: { children: React.Reac
               <Link href="/refer" style={{ color: 'var(--ink-2)' }}>Refer a patient</Link>
             </nav>
             <span className="label" style={{ marginLeft: 'auto' }}>{session.displayName}</span>
+            <form action={signOut}>
+              <button
+                type="submit"
+                style={{
+                  background: 'none', border: 0, padding: 0, cursor: 'pointer',
+                  font: 'inherit', fontSize: 'var(--step--1)', color: 'var(--ink-3)',
+                  textDecoration: 'underline', textUnderlineOffset: '3px',
+                }}
+              >
+                Sign out
+              </button>
+            </form>
           </div>
         </Wrap>
       </header>

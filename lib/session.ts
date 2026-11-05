@@ -110,9 +110,17 @@ export const getPortalSession = cache(async (): Promise<PortalSession | null> =>
   };
 });
 
+/**
+ * Replaces any session for this user, then issues a new one.
+ *
+ * The delete is the point. Without it a user accumulated a live `sessions` row per
+ * sign-in for fourteen days each, with no way to end any of them — `endSession` was
+ * written and never called from anywhere.
+ */
 export async function startSession(userId: string): Promise<void> {
   const token = newToken();
   const { query } = await getDb();
+  await query(`DELETE FROM sessions WHERE user_id = $1`, [userId]);
   await query(
     `INSERT INTO sessions (user_id, token_hash, expires_at)
      VALUES ($1, $2, now() + ($3 || ' days')::interval)`,

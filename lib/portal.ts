@@ -180,8 +180,21 @@ const CREDENTIAL_LABEL: Record<string, string> = {
   other: 'Other',
 };
 
-/** Not shown to a household at all, pending counsel question 13. */
-const WITHHELD_FROM_HOUSEHOLD = new Set(['live_scan']);
+/**
+ * What a household may be told was verified. An ALLOW-list, not a deny-list.
+ *
+ * This was `WITHHELD_FROM_HOUSEHOLD = new Set(['live_scan'])`, which took the
+ * non-conservative reading of counsel question 13 for every type but one — and meant
+ * any credential type added to the enum later was disclosed to households by default.
+ * The module's own header says the conservative reading costs a household nothing.
+ *
+ * These four are the ones that answer "is this person safe and current to do this
+ * work". A driving licence, insurance certificate or immunisation record is not the
+ * household's business, and `live_scan` stays out entirely while question 13 is open.
+ */
+const SHOWN_TO_HOUSEHOLD = new Set([
+  'rn_license', 'lvn_license', 'cna_cert', 'hca_registry', 'tb_clearance', 'cpr_bls',
+]);
 
 export async function benchProvider(
   session: PortalSession,
@@ -213,7 +226,7 @@ export async function benchProvider(
         shortlistId: bench.shortlistId,
         caseId: bench.caseId,
         verified: creds
-          .filter((c) => !WITHHELD_FROM_HOUSEHOLD.has(c.type))
+          .filter((c) => SHOWN_TO_HOUSEHOLD.has(c.type))
           .map((c) => ({
             label: CREDENTIAL_LABEL[c.type] ?? c.type,
             verifiedOn: c.verified_on,

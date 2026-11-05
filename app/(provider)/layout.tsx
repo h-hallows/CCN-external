@@ -5,6 +5,7 @@ import { getPortalSession } from '@/lib/session';
 import { databaseAvailable } from '@/lib/availability';
 import { Unavailable } from '@/components/Unavailable';
 import { Wrap } from '@/components/layout';
+import { signOut } from '@/app/signOut';
 import { DISPLAY_NAME } from '@/lib/brand';
 
 /** Dynamic, server-rendered, never indexed. Spec § 6.2. */
@@ -58,6 +59,18 @@ export default async function ProviderLayout({ children }: { children: React.Rea
               ))}
             </nav>
             <span className="label" style={{ marginLeft: 'auto' }}>{session.displayName}</span>
+            <form action={signOut}>
+              <button
+                type="submit"
+                style={{
+                  background: 'none', border: 0, padding: 0, cursor: 'pointer',
+                  font: 'inherit', fontSize: 'var(--step--1)', color: 'var(--ink-3)',
+                  textDecoration: 'underline', textUnderlineOffset: '3px',
+                }}
+              >
+                Sign out
+              </button>
+            </form>
           </div>
         </Wrap>
       </header>

@@ -55,6 +55,16 @@ export async function asPortalUser<T>(
 export async function forEligibilityCheck<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {
   const handle = await getDb();
   return handle.transaction(async (tx) => {
+    /*
+     * The role switch matters as much here as in asPortalUser, and was missing.
+     *
+     * Setting operator CLAIMS was the intent. Without `SET LOCAL ROLE ccn_app` the
+     * statement also runs as the connecting role, which owns these tables and so
+     * bypasses FORCEd row-level security outright — the hatch was unrestricted twice
+     * over rather than once. Operator claims alone are all this needs, and both call
+     * sites keep working with the role dropped.
+     */
+    await tx.query(`SET LOCAL ROLE ccn_app`);
     await tx.query(
       `SELECT set_config('request.jwt.claims', $1, true)`,
       [JSON.stringify({ ccn_role: 'operator' })],
