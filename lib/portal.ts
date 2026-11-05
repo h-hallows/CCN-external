@@ -100,7 +100,7 @@ export async function currentBenches(
   // single-connection one deadlocks against the transaction already open. Running them
   // one after the other behaves identically on both.
   const items = await asPortalUser(session, (tx: Tx) => tx.query<ItemRow>(
-    `SELECT s.id AS shortlist_id, s.case_id, s.published_at, s.note, c.care::text AS care,
+    `SELECT s.id AS shortlist_id, s.case_id, s.published_at::text, s.note, c.care::text AS care,
             v.provider_id, v.full_name, v.type::text AS type, v.rate_hourly::text,
             v.specialties, v.languages, v.restrictions,
             v.photo_url, v.photo_consent_on, v.position, v.appears_available

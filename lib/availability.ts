@@ -9,11 +9,17 @@
  * stays up and says something useful, rather than failing in a way that looks broken to
  * a family trying to arrange care at eight on a Sunday morning.
  */
+import { cache } from 'react';
 import { getDb } from '@h-hallows/core/db';
 
 export type Availability = { ok: true } | { ok: false; reason: 'not_configured' | 'unreachable' };
 
-export async function databaseAvailable(): Promise<Availability> {
+/**
+ * Deduplicated per request. Each portal layout probes before rendering, so without
+ * this every authenticated page issued a `SELECT 1` of its own alongside the session
+ * read — two round trips before any real work began.
+ */
+export const databaseAvailable = cache(async (): Promise<Availability> => {
   try {
     const { query } = await getDb();
     await query('SELECT 1');
@@ -24,4 +30,4 @@ export async function databaseAvailable(): Promise<Availability> {
     if (!notConfigured) console.error('[availability] database unreachable', err);
     return { ok: false, reason: notConfigured ? 'not_configured' : 'unreachable' };
   }
-}
+});

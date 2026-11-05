@@ -81,10 +81,14 @@ export async function caseSchedules(session: PortalSession): Promise<CaseSchedul
               g.resolved_provider_id, p.full_name AS covered_by
          FROM coverage_gaps g
          LEFT JOIN providers p ON p.id = g.resolved_provider_id
-        WHERE g.on_date >= current_date
-          AND g.on_date < current_date + ($1 || ' days')::interval
+        -- California's date. No connection sets TimeZone, so current_date is the
+        -- server's — UTC on a managed Postgres. From late afternoon Pacific that is
+        -- already tomorrow, and this window would silently drop TONIGHT's gaps,
+        -- including the overnight block, which is the one that matters at that hour.
+        WHERE g.on_date >= (now() AT TIME ZONE 'America/Los_Angeles')::date
+          AND g.on_date < (now() AT TIME ZONE 'America/Los_Angeles')::date + $1::int
         ORDER BY g.on_date, g.block`,
-      [String(GAP_WINDOW_DAYS)],
+      [GAP_WINDOW_DAYS],
     );
 
     return cases.map((c) => ({

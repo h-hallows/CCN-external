@@ -10,9 +10,11 @@
  * It can quote the statute because tests are not linted copy.
  */
 import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
-  ALL_STATUTORY_TEXTS, BUSINESS_CONTACT, COMPLAINT_CONTACTS, contactsComplete,
+  ALL_STATUTORY_TEXTS, BUSINESS_CONTACT, COMPLAINT_CONTACTS,
+  COMPLAINT_CONTACTS_DOCUMENT, contactsComplete,
   isDeliverable, NURSES_REGISTRY_DISCLOSURE, ORAL_DISCLOSURE, PROVIDER_NOTICE,
   REFERRAL_AGENCY_LINE, WRITTEN_STATEMENT, WRITTEN_STATEMENT_MIN_POINT,
 } from '@/content/statutory';
@@ -184,5 +186,58 @@ describe('the brand is a token, not a literal', () => {
   it('still records BUSINESS_CONTACT as superseded by lib/brand', () => {
     // Kept so an older import does not silently resolve to something shippable.
     expect(isDeliverable(BUSINESS_CONTACT)).toBe(false);
+  });
+});
+
+/**
+ * No screen may put a draft or unfilled statutory text in front of anybody.
+ *
+ * This is a regression test for something that shipped. `isDeliverable` grades every
+ * text — 'statute' and 'approved' may be shown, 'draft' and 'unfilled' may not — and
+ * only StatutoryFooter consulted it. The household and provider document screens did
+ * not, so the § 1812.533(b)(4) complaint contacts, which are 'unfilled' with an empty
+ * body, rendered as a "Read it" panel containing nothing: a required disclosure shown
+ * as though it existed and said nothing at all. Two drafts rendered as settled text.
+ *
+ * Showing a draft is worse than showing nothing, because the reader cannot tell.
+ */
+describe('a draft never reaches a reader', () => {
+  const root = new URL('..', import.meta.url).pathname;
+
+  function read(file: string): string {
+    return readFileSync(join(root, file), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, ' ')
+      .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+  }
+
+  it('the gate still grades them the way this test assumes', () => {
+    // If the statuses change, this file should fail rather than quietly assert nothing.
+    expect(isDeliverable(COMPLAINT_CONTACTS_DOCUMENT)).toBe(false);
+    expect(isDeliverable(NURSES_REGISTRY_DISCLOSURE)).toBe(false);
+    expect(isDeliverable(PROVIDER_NOTICE)).toBe(false);
+    expect(isDeliverable(ORAL_DISCLOSURE)).toBe(true);
+    expect(isDeliverable(WRITTEN_STATEMENT)).toBe(true);
+  });
+
+  it('lib/documents.ts withholds the body of anything undeliverable', () => {
+    const src = read('lib/documents.ts');
+    expect(src).toContain('isDeliverable(source)');
+    // The body is only ever copied across behind that check.
+    expect(src).toMatch(/text:\s*deliverable\s*\?\s*source\.text\s*:\s*''/);
+  });
+
+  it('every screen that renders a statutory body checks first', () => {
+    for (const file of [
+      'app/(client)/portal/documents/page.tsx',
+      'app/(provider)/pro/documents/page.tsx',
+    ]) {
+      const src = read(file);
+      const rendersBody = /\{d\.text\}|\{PROVIDER_NOTICE\.text\}/.test(src);
+      if (!rendersBody) continue;
+      expect(
+        /d\.deliverable|isDeliverable\(/.test(src),
+        `${file} renders a statutory body without checking it may be shown`,
+      ).toBe(true);
+    }
   });
 });

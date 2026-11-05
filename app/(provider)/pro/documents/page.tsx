@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { PROVIDER_NOTICE } from '@/content/statutory';
+import { PROVIDER_NOTICE, isDeliverable } from '@/content/statutory';
 import { getPortalSession } from '@/lib/session';
 import { providerSelf } from '@/lib/pro';
 import { feeSchedulesFor, hasFeeSchedule } from '@/lib/feeSchedule';
@@ -78,19 +78,37 @@ export default async function ProDocuments() {
             {PROVIDER_NOTICE.citation} &middot; version {PROVIDER_NOTICE.VERSION}
           </p>
         </Prose>
-        <details style={{ marginTop: '.75rem', maxWidth: 'var(--measure)' }}>
-          <summary style={{ cursor: 'pointer', fontSize: 'var(--step--1)' }}>Read it</summary>
-          <div
-            className="statutory"
-            style={{
-              marginTop: '.75rem', padding: '1rem', border: '1px solid var(--line)',
-              background: 'var(--surface)', whiteSpace: 'pre-wrap',
-              fontSize: 'var(--step--1)',
-            }}
-          >
-            {PROVIDER_NOTICE.text}
-          </div>
-        </details>
+        {/*
+          * Only when counsel stands behind the wording. § 1812.5095(d) is currently
+          * drafted but not approved, and showing a provider a draft as though it were
+          * the notice they acknowledged is worse than showing nothing — they have no
+          * way to tell which they are reading.
+          */}
+        {isDeliverable(PROVIDER_NOTICE) ? (
+          <details style={{ marginTop: '.75rem', maxWidth: 'var(--measure)' }}>
+            <summary style={{ cursor: 'pointer', fontSize: 'var(--step--1)' }}>Read it</summary>
+            <div
+              className="statutory"
+              style={{
+                marginTop: '.75rem', padding: '1rem', border: '1px solid var(--line)',
+                background: 'var(--surface)', whiteSpace: 'pre-wrap',
+                fontSize: 'var(--step--1)',
+              }}
+            >
+              {PROVIDER_NOTICE.text}
+            </div>
+          </details>
+        ) : (
+          <p style={{
+            marginTop: '.75rem', padding: '.8rem 1rem', maxWidth: 'var(--measure)',
+            border: '1px solid var(--line-2)', fontSize: 'var(--step--1)',
+            color: 'var(--ink-2)',
+          }}>
+            The wording is still with our lawyers, so we are not reprinting it here —
+            you would have no way of telling a draft from the final version. Ask us for
+            a copy of what you signed and we will send it.
+          </p>
+        )}
       </Section>
 
       {hasFeeSchedule(me.type) ? (

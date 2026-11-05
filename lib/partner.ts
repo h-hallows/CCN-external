@@ -44,8 +44,8 @@ export async function partnerReferrals(
       // Columns listed and timestamps cast, rather than SELECT *. The driver hands
       // back a Date for a timestamptz, and String(date).slice(0, 10) is "Thu Nov 05"
       // — which rendered next to ISO dates everywhere else in the portal and would
-      // not survive being parsed. Every other module in this app casts at the
-      // boundary for the same reason; this one did not.
+      // not survive being parsed. Casting at the boundary is what every module here
+      // does; this one was written without it and shipped the wrong dates once.
       `SELECT inquiry_id, received_at::text, patient_initials, care_type, area,
               urgency, contact_name, acknowledged_at::text, outcome
          FROM partner_referrals()`,

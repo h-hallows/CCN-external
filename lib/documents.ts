@@ -20,7 +20,7 @@
  */
 import {
   NURSES_REGISTRY_DISCLOSURE, ORAL_DISCLOSURE, WRITTEN_STATEMENT, COMPLAINT_CONTACTS_DOCUMENT,
-  type StatutoryText,
+  isDeliverable, type StatutoryText,
 } from '@/content/statutory';
 import { asPortalUser } from './portalDb';
 import type { PortalSession } from './session';
@@ -38,6 +38,12 @@ export interface PortalDocument {
   on: string | null;
   version: string;
   text: string;
+  /**
+   * False while the wording is a draft counsel has not approved, or a business fact
+   * nobody has supplied. `isDeliverable` is the single definition of that, and the
+   * screen must not render the body when this is false — see the note on `doc` below.
+   */
+  deliverable: boolean;
 }
 
 export interface CaseDocuments {
@@ -47,10 +53,10 @@ export interface CaseDocuments {
 }
 
 interface DisclosureRow {
+  id: string;
   case_id: string;
   care: string;
   disclosed_at: string;
-  method: string;
   written_due_on: string;
   written_sent_on: string | null;
   nurse_disclosure_required: boolean;
@@ -59,6 +65,35 @@ interface DisclosureRow {
   statutory_version: string;
 }
 
+/*
+ * Keys are per DISCLOSURE, not per case.
+ *
+ * A case has one disclosure per referral — `referrals.disclosure_id` is NOT NULL — and
+ * a bench puts two or three providers forward, so several disclosures on one case is
+ * the normal state rather than an edge. Keying on case_id meant a household referred
+ * two providers saw "What we told you on the phone" twice with the same React key and
+ * two different dates: duplicate keys, and two identical labels carrying different
+ * facts, on a screen whose whole purpose is a record the subject can check.
+ */
+
+/**
+ * WHY `deliverable` IS CARRIED RATHER THAN ASSUMED.
+ *
+ * `content/statutory/types.ts` grades every text: 'statute' is reproduced verbatim,
+ * 'approved' has counsel behind it, 'draft' does not, and 'unfilled' is a business
+ * fact nobody has supplied. `isDeliverable` is the one definition of which may be put
+ * in front of somebody, and until now only `StatutoryFooter` consulted it.
+ *
+ * These screens did not, and the result was worse than it sounds. The § 1812.533(b)(4)
+ * complaint contacts are 'unfilled' with an empty body, so a household opening "Where
+ * to complain about a nurse" was handed a blank panel — a required disclosure
+ * presented as though it existed and said nothing. The nurses' registry disclosure and
+ * the provider notice are 'draft' and were shown as settled text.
+ *
+ * Showing a draft is a worse failure than showing nothing, because the reader has no
+ * way to tell. So the body only crosses when it is deliverable, and the screen says
+ * plainly what the position is when it is not.
+ */
 function doc(
   key: string,
   label: string,
@@ -68,10 +103,11 @@ function doc(
   on: string | null,
   version: string,
 ): PortalDocument {
+  const deliverable = isDeliverable(source);
   return {
-    key, label, plainly, state, on, version,
+    key, label, plainly, state, on, version, deliverable,
     citation: source.citation,
-    text: source.text,
+    text: deliverable ? source.text : '',
   };
 }
 
@@ -79,7 +115,7 @@ export async function caseDocuments(session: PortalSession): Promise<CaseDocumen
   if (!session.householdId) return [];
 
   const rows = await asPortalUser(session, (tx) => tx.query<DisclosureRow>(
-    `SELECT d.case_id, c.care::text AS care, d.disclosed_at::text, d.method,
+    `SELECT d.id, d.case_id, c.care::text AS care, d.disclosed_at::text,
             d.written_due_on::text, d.written_sent_on::text,
             d.nurse_disclosure_required, d.nurse_disclosure_sent_on::text,
             d.complaint_contacts_sent_on::text, d.statutory_version
@@ -94,7 +130,7 @@ export async function caseDocuments(session: PortalSession): Promise<CaseDocumen
       ?? { caseId: row.case_id, care: row.care, documents: [] };
 
     entry.documents.push(doc(
-      `${row.case_id}-oral`,
+      `${row.id}-oral`,
       'What we told you on the phone',
       'The law requires us to say certain things out loud before we refer anyone. '
       + 'This is that text, so you have it in writing too.',
@@ -105,7 +141,7 @@ export async function caseDocuments(session: PortalSession): Promise<CaseDocumen
     ));
 
     entry.documents.push(doc(
-      `${row.case_id}-written`,
+      `${row.id}-written`,
       'Your written statement',
       'The same terms in writing. The law gives us three business days from the '
       + 'referral to get it to you.',
@@ -117,7 +153,7 @@ export async function caseDocuments(session: PortalSession): Promise<CaseDocumen
 
     if (row.nurse_disclosure_required) {
       entry.documents.push(doc(
-        `${row.case_id}-nurses-registry`,
+        `${row.id}-nurses-registry`,
         'Nurses’ registry disclosure',
         'Because a nurse is involved, the law requires a separate notice — and it has '
         + 'to reach you before any nursing care starts, not afterwards.',
@@ -128,7 +164,7 @@ export async function caseDocuments(session: PortalSession): Promise<CaseDocumen
       ));
 
       entry.documents.push(doc(
-        `${row.case_id}-complaints`,
+        `${row.id}-complaints`,
         'Where to complain about a nurse',
         'Who to contact if you have a complaint about licensed nursing care, with '
         + 'their addresses and phone numbers. Nothing goes through us.',

@@ -89,28 +89,49 @@ export async function saveFeedback(
     return { ok: false, reason: 'invalid' };
   }
 
-  const subject = await feedbackSubject(session, input.referralId);
-  if (!subject) return { ok: false, reason: 'not_found' };
-  // Answered once. A statement that can be revised afterwards is a weaker record of
-  // what was said, and there is deliberately no UPDATE policy to revise it with.
-  if (subject.answeredOn) return { ok: false, reason: 'already_answered' };
-
   try {
-    await asPortalUser(session, (tx) => tx.query(
-      // use_restriction is passed explicitly rather than left to its default, because
-      // the policy's WITH CHECK requires it and a reader of this statement should see
-      // the restriction being written rather than have to go and look it up.
-      `INSERT INTO referral_feedback
-         (referral_id, referral_service_rating, would_refer_again, notes, use_restriction)
-       VALUES ($1, $2, $3, $4, 'referral_decisions_only')`,
-      [
-        input.referralId,
-        input.introductionRating,
-        input.wouldAskAgain,
-        input.notes?.trim() ? input.notes.trim() : null,
-      ],
-    ));
-    return { ok: true };
+    /*
+     * Check and insert in ONE transaction.
+     *
+     * These were two: `feedbackSubject` read, then a separate transaction inserted.
+     * Two concurrent submits — a double click, a double-posted form, two tabs — both
+     * read answeredOn as null and both inserted, and nothing at the database level
+     * stopped the second: `referral_feedback_referral_idx` is not unique and there is
+     * no UPDATE or DELETE policy to clean the duplicate up with. lib/request.ts and
+     * lib/opportunities.ts both already do it this way, with the same reasoning;
+     * feedback was the odd one out.
+     *
+     * Answered once, because a statement that can be revised afterwards is a weaker
+     * record of what was said.
+     */
+    return await asPortalUser(session, async (tx) => {
+      const owned = await tx.query<{ id: string }>(
+        `SELECT id FROM referrals WHERE id = $1`, [input.referralId]);
+      if (owned.length === 0) return { ok: false, reason: 'not_found' } as const;
+
+      const already = await tx.query<{ id: string }>(
+        `SELECT id FROM referral_feedback WHERE referral_id = $1 LIMIT 1`,
+        [input.referralId]);
+      if (already.length > 0) {
+        return { ok: false, reason: 'already_answered' } as const;
+      }
+
+      await tx.query(
+        // use_restriction is passed explicitly rather than left to its default,
+        // because the policy's WITH CHECK requires it and a reader of this statement
+        // should see the restriction being written rather than go and look it up.
+        `INSERT INTO referral_feedback
+           (referral_id, referral_service_rating, would_refer_again, notes, use_restriction)
+         VALUES ($1, $2, $3, $4, 'referral_decisions_only')`,
+        [
+          input.referralId,
+          input.introductionRating,
+          input.wouldAskAgain,
+          input.notes?.trim() ? input.notes.trim() : null,
+        ],
+      );
+      return { ok: true } as const;
+    });
   } catch (err) {
     console.error('[feedback] could not record', err);
     return { ok: false, reason: 'failed' };

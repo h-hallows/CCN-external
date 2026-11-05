@@ -240,7 +240,11 @@ export async function savePhoto(
   }
   return updateSelf(
     session,
-    `UPDATE providers SET photo_url = $2, photo_consent_on = current_date`,
+    // LA's date, for the same reason as the schedule window: current_date is the
+    // server's, and a consent recorded as dated tomorrow is a worse record than one
+    // dated today.
+    `UPDATE providers SET photo_url = $2,
+            photo_consent_on = (now() AT TIME ZONE 'America/Los_Angeles')::date`,
     [url],
   );
 }
@@ -272,8 +276,14 @@ export interface ProviderStanding {
 export async function credentialStanding(
   session: PortalSession,
   now = new Date(),
+  /**
+   * The provider row, when the caller already has it. /pro renders both this and the
+   * profile summary, so without it the same twenty-column row was fetched twice in
+   * two separate transactions to read four fields.
+   */
+  known?: ProviderSelf | null,
 ): Promise<ProviderStanding | null> {
-  const self = await providerSelf(session);
+  const self = known ?? await providerSelf(session);
   if (!self) return null;
 
   return asPortalUser(session, async (tx) => {

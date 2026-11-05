@@ -229,6 +229,27 @@ describe('documents', () => {
   it('shows another household none of it', async () => {
     expect(await caseDocuments(theirs)).toEqual([]);
   });
+
+  it('never hands over the body of a draft or unfilled text', async () => {
+    /*
+     * Behavioural, not a source check. This shipped: the § 1812.533(b)(4) complaint
+     * contacts are 'unfilled' with an empty body, and the screen rendered a "Read it"
+     * panel containing nothing — a required disclosure presented as though it existed
+     * and said nothing. Two drafts rendered as settled text. A reader cannot tell a
+     * draft from a final version, so showing one is worse than showing none.
+     */
+    const [docs] = await caseDocuments(ours);
+    const undeliverable = docs!.documents.filter((d) => !d.deliverable);
+    expect(undeliverable.length, 'the fixture no longer covers an undeliverable text')
+      .toBeGreaterThan(0);
+    for (const d of undeliverable) {
+      expect(d.text, `${d.label} leaked a body it may not show`).toBe('');
+    }
+    // And the ones that may be shown still are, so this is not passing vacuously.
+    const deliverable = docs!.documents.filter((d) => d.deliverable);
+    expect(deliverable.length).toBeGreaterThan(0);
+    for (const d of deliverable) expect(d.text.length).toBeGreaterThan(0);
+  });
 });
 
 describe('feedback is about the referral service, never about the person', () => {

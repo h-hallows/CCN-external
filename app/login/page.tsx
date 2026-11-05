@@ -44,10 +44,35 @@ export default async function Login({
 
     if (user) {
       const token = newToken();
+      /*
+       * The invite has to NAME the thing it lets you into.
+       *
+       * This used to insert the role with all three subject ids left NULL, and it was
+       * broken: `portal_invite_names_its_subject` requires a household invite to carry
+       * a household_id, a provider invite a provider_id, and (since migration 0012) a
+       * partner invite a partner_id. So typing your own email into this page raised a
+       * constraint violation rather than sending a link — for households and providers
+       * before 0012, and for every portal role after it.
+       *
+       * The ids come from the membership tables, and the WHERE refuses to issue a link
+       * for a user whose role and membership disagree. In that case no row is written
+       * and the page still says it has sent one, which is the same posture as an
+       * unknown address: this form must not reveal which families use us.
+       */
       await query(
-        `INSERT INTO portal_invites (email, role, token_hash, issued_by, expires_at)
-         SELECT $1, role, $2, 'self-service', now() + interval '15 minutes'
-           FROM users WHERE id = $3`,
+        `INSERT INTO portal_invites
+           (email, role, household_id, provider_id, partner_id,
+            token_hash, issued_by, expires_at)
+         SELECT u.email, u.role, hu.household_id, pu.provider_id, ru.partner_id,
+                $2, 'self-service', now() + interval '15 minutes'
+           FROM users u
+           LEFT JOIN household_users hu ON hu.user_id = u.id
+           LEFT JOIN provider_users pu ON pu.user_id = u.id
+           LEFT JOIN partner_users ru ON ru.user_id = u.id
+          WHERE u.id = $3
+            AND ((u.role = 'household' AND hu.household_id IS NOT NULL)
+              OR (u.role = 'provider'  AND pu.provider_id  IS NOT NULL)
+              OR (u.role = 'partner'   AND ru.partner_id   IS NOT NULL))`,
         [email, hashToken(token), user.id],
       );
       const host = h.get('host') ?? 'localhost:3003';

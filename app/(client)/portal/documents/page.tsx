@@ -78,21 +78,38 @@ export default async function Documents() {
                   * than one that can, and the household is the party best placed to
                   * notice if it is wrong.
                   */}
-                <details style={{ marginTop: '.75rem' }}>
-                  <summary style={{ cursor: 'pointer', fontSize: 'var(--step--1)' }}>
-                    Read it
-                  </summary>
-                  <div style={{
-                    marginTop: '.75rem', padding: '1rem',
-                    border: '1px solid var(--line)', background: 'var(--surface)',
-                    whiteSpace: 'pre-wrap', fontSize: 'var(--step--1)',
+                {d.deliverable ? (
+                  <details style={{ marginTop: '.75rem' }}>
+                    <summary style={{ cursor: 'pointer', fontSize: 'var(--step--1)' }}>
+                      Read it
+                    </summary>
+                    <div style={{
+                      marginTop: '.75rem', padding: '1rem',
+                      border: '1px solid var(--line)', background: 'var(--surface)',
+                      whiteSpace: 'pre-wrap', fontSize: 'var(--step--1)',
+                    }}>
+                      {d.text}
+                    </div>
+                    <p className="label" style={{ marginTop: '.5rem' }}>
+                      {d.citation} · version {d.version}
+                    </p>
+                  </details>
+                ) : (
+                  /*
+                    * Not an empty panel behind a "Read it" link. A required disclosure
+                    * shown as a blank document is worse than one that says plainly it
+                    * is not settled yet, because the reader cannot tell the difference.
+                    */
+                  <p style={{
+                    marginTop: '.75rem', padding: '.8rem 1rem',
+                    border: '1px solid var(--line-2)',
+                    fontSize: 'var(--step--1)', color: 'var(--ink-2)',
                   }}>
-                    {d.text}
-                  </div>
-                  <p className="label" style={{ marginTop: '.5rem' }}>
-                    {d.citation} · version {d.version}
+                    We are not showing the wording here yet — it is with our lawyers and
+                    we would rather you had the final version than a draft. Ask us and we
+                    will send you what we have. {d.citation}.
                   </p>
-                </details>
+                )}
               </article>
             ))}
           </div>

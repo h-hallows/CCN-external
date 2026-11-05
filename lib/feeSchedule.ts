@@ -27,6 +27,7 @@
  * which makes a missing delivery visible as a gap rather than hidden behind a list
  * that looks complete.
  */
+import { isoLA } from '@h-hallows/core/domain';
 import { asPortalUser } from './portalDb';
 import type { PortalSession } from './session';
 
@@ -76,9 +77,23 @@ export async function feeSchedulesFor(
       [session.providerId],
     );
 
-    const today = now.toISOString().slice(0, 10);
-    // In force = the highest version whose effective date has arrived.
-    const live = rows.find((r) => r.effective_from <= today);
+    /*
+     * California's date, not UTC's. toISOString() is UTC, so between late afternoon
+     * and midnight Pacific it already reads as tomorrow — and a schedule effective
+     * tomorrow would show as in force up to eight hours early, every working evening.
+     * The § 1812.527 seven-day embargo is the thing this screen exists to make
+     * auditable, so that is a compliance-visible error rather than a cosmetic one.
+     *
+     * Everything else in the system is explicitly LA-civil: the CHECK constraint, the
+     * rate_ranges query and v_shortlist_items_client all use
+     * (now() AT TIME ZONE 'America/Los_Angeles')::date. isoLA is core's helper for it.
+     */
+    const today = isoLA(now);
+    // In force = the latest effective date that has arrived, by date rather than by
+    // version number — a lower version can be posted later.
+    const live = [...rows]
+      .filter((r) => r.effective_from <= today)
+      .sort((a, b) => (a.effective_from < b.effective_from ? 1 : -1))[0];
 
     return rows.map((r) => {
       const posted = r.posted_at.slice(0, 10);

@@ -11,6 +11,7 @@
  * swappable, and nothing in the database layer changes when it is swapped.
  */
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { cache } from 'react';
 import { cookies } from 'next/headers';
 import { getDb } from '@h-hallows/core/db';
 
@@ -65,8 +66,14 @@ export function claimsFor(session: PortalSession): Record<string, string> {
  * Reads as the operator because it has to look across tables a household cannot see —
  * which is exactly why it returns nothing but identity, and why every query that
  * touches real data goes through `asPortalUser` instead.
+ *
+ * WRAPPED IN React's `cache`, which deduplicates it per request. Every portal layout
+ * calls this and then every page calls it again, so each authenticated render was
+ * issuing the same five-table join two or three times — /pro/resume three, because its
+ * generateMetadata needs it too. Next deduplicates `fetch`, not database calls, so
+ * nothing was doing this for us.
  */
-export async function getPortalSession(): Promise<PortalSession | null> {
+export const getPortalSession = cache(async (): Promise<PortalSession | null> => {
   const jar = await cookies();
   const token = jar.get(PORTAL_COOKIE)?.value;
   if (!token) return null;
@@ -101,7 +108,7 @@ export async function getPortalSession(): Promise<PortalSession | null> {
     providerId: row.provider_id,
     partnerId: row.partner_id,
   };
-}
+});
 
 export async function startSession(userId: string): Promise<void> {
   const token = newToken();

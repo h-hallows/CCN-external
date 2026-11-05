@@ -31,7 +31,10 @@ export default async function ProHome() {
   if (!session) redirect('/login');
   const me = await providerSelf(session);
   if (!me) redirect('/login');
-  const standing = await credentialStanding(session);
+  // Sequential on purpose. These are two top-level transactions, and the embedded
+  // single-connection driver used in development and tests cannot overlap them.
+  // `me` is passed through so the provider row is read once rather than twice.
+  const standing = await credentialStanding(session, undefined, me);
   const opportunities = await currentOpportunities(session);
 
   const blocking = standing?.blocking ?? [];

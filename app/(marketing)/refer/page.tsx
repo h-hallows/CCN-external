@@ -3,8 +3,6 @@ import { OPERATOR_NAME, contactLine } from '@/lib/brand';
 import { PartnerReferralForm } from '@/components/PartnerReferralForm';
 import { Prose, Section, Stack } from '@/components/layout';
 
-export const dynamic = 'force-dynamic';
-
 export const metadata: Metadata = {
   title: 'Refer a patient',
   description:
