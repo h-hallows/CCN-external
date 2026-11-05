@@ -120,11 +120,16 @@ describe('the footer carries both required lines', () => {
     expect(code).not.toContain('is a referral agency.');
   });
 
-  it('fails a production deploy while either line is missing', () => {
-    const footer = read('../components/StatutoryFooter.tsx');
-    expect(footer).toContain("process.env.VERCEL_ENV === 'production'");
-    expect(footer).not.toContain("process.env.NODE_ENV === 'production'");
-    expect(footer).toContain('throw new Error');
+  it('does not decide whether the site ships — the layout does', () => {
+    // This used to throw during a production build, which was right about the rule and
+    // wrong about the remedy: it took the portals, the intake routes and the health
+    // check down with the marketing pages, over a name waiting on a lawyer. The
+    // (marketing) layout withholds the page instead, so no incomplete advertisement is
+    // served and everything else still deploys.
+    const code = read('../components/StatutoryFooter.tsx')
+      .replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(code).not.toContain('throw new Error');
+    expect(read('../app/(marketing)/layout.tsx')).toContain('brandBlockers()');
   });
 
   it('renders the correct name, not a marketing one — § 1812.533(b)(2)', () => {

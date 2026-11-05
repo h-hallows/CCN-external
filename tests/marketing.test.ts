@@ -271,3 +271,32 @@ describe('the site stays up when the database does not', () => {
     expect(h).not.toContain('LEGAL_NAME,');
   });
 });
+
+describe('a page that cannot carry the required footer is not served', () => {
+  it('the layout withholds the marketing content rather than failing the build', () => {
+    const layout = read(join(ROOT, 'app/(marketing)/layout.tsx'));
+    expect(layout).toContain('brandBlockers()');
+    expect(layout).toContain('NotPublished');
+  });
+
+  it('nothing throws during a build any more — that took the portals down too', () => {
+    const footer = read(join(ROOT, 'components/StatutoryFooter.tsx'));
+    const code = footer.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(code).not.toContain('throw new Error');
+    expect(code).not.toContain('VERCEL_ENV');
+  });
+
+  it('the holding page is not itself an advertisement', () => {
+    const page = read(join(ROOT, 'components/NotPublished.tsx'));
+    const rendered = page.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    // No name, no services, no claim — nothing for § 1812.533(b)(2) to attach to.
+    for (const claim of ['nursing', 'care', 'registry', 'referral', 'LEGAL_NAME', 'DISPLAY_NAME']) {
+      expect(rendered.toLowerCase(), `the holding page claims "${claim}"`)
+        .not.toContain(claim.toLowerCase());
+    }
+  });
+
+  it('and is not indexable, so it cannot outrank the real site later', () => {
+    expect(read(join(ROOT, 'app/(marketing)/layout.tsx'))).toContain('index: false');
+  });
+});

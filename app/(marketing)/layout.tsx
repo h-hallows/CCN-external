@@ -1,7 +1,17 @@
 import Link from 'next/link';
 import { StatutoryFooter } from '@/components/StatutoryFooter';
 import { Wrap } from '@/components/layout';
-import { DISPLAY_NAME } from '@/lib/brand';
+import { brandBlockers, DISPLAY_NAME } from '@/lib/brand';
+import { NotPublished } from '@/components/NotPublished';
+import type { Metadata } from 'next';
+
+/*
+ * While the site is withheld there is nothing worth indexing, and an indexed holding
+ * page outranks the real one for a while once it is published.
+ */
+export const metadata: Metadata = brandBlockers().length > 0
+  ? { robots: { index: false, follow: false } }
+  : {};
 
 const NAV = [
   { href: '/how-it-works', label: 'How it works' },
@@ -16,6 +26,18 @@ const NAV = [
  * unremovable — a page cannot opt out of its own layout.
  */
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
+  /*
+   * § 1812.533(b)(2) requires the registry's correct name plus a street address or
+   * business telephone in every advertisement, and a public marketing page is one.
+   * Without them the page is not served at all — withholding it satisfies the statute,
+   * where shipping it would breach it.
+   *
+   * This replaced throwing during the build. The throw was correct about the rule and
+   * wrong about the remedy: it took the portals, the intake routes and the health check
+   * down with the marketing pages, over a name that is waiting on a lawyer.
+   */
+  if (brandBlockers().length > 0) return <NotPublished />;
+
   return (
     <>
       <header style={{ borderBottom: '1px solid var(--line)', background: 'var(--surface)' }}>
