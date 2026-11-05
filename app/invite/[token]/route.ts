@@ -30,7 +30,7 @@ export async function GET(
   // two simultaneous clicks cannot both succeed.
   const [invite] = await query<{
     id: string; email: string; role: string;
-    household_id: string | null; provider_id: string | null;
+    household_id: string | null; provider_id: string | null; partner_id: string | null;
   }>(
     `UPDATE portal_invites
         SET accepted_at = now()
@@ -38,7 +38,7 @@ export async function GET(
         AND accepted_at IS NULL
         AND revoked_at IS NULL
         AND expires_at > now()
-      RETURNING id, email, role::text AS role, household_id, provider_id`,
+      RETURNING id, email, role::text AS role, household_id, provider_id, partner_id`,
     [hashToken(token)],
   );
 
@@ -67,7 +67,18 @@ export async function GET(
       [user.id, invite.provider_id],
     );
   }
+  if (invite.partner_id) {
+    await query(
+      `INSERT INTO partner_users (user_id, partner_id) VALUES ($1, $2)
+       ON CONFLICT DO NOTHING`,
+      [user.id, invite.partner_id],
+    );
+  }
 
   await startSession(user.id);
-  redirect(invite.role === 'provider' ? '/pro' : '/portal');
+  redirect(
+    invite.role === 'provider' ? '/pro'
+      : invite.role === 'partner' ? '/partner'
+      : '/portal',
+  );
 }

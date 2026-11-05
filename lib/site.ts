@@ -24,4 +24,5 @@ export const MARKETING_ROUTES: {
   { path: '/vetting', priority: 0.8, changeFrequency: 'monthly' },
   { path: '/for-providers', priority: 0.7, changeFrequency: 'monthly' },
   { path: '/for-partners', priority: 0.7, changeFrequency: 'monthly' },
+  { path: '/refer', priority: 0.8, changeFrequency: 'monthly' },
 ];

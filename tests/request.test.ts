@@ -59,7 +59,7 @@ async function makeHousehold(email: string, householdId: string): Promise<Portal
   );
   return {
     userId: user.id, email, displayName: email, role: 'household',
-    householdId, providerId: null,
+    householdId, providerId: null, partnerId: null,
   };
 }
 

@@ -48,7 +48,7 @@ async function makeProvider(email: string, providerId: string): Promise<PortalSe
   );
   return {
     userId: user.id, email, displayName: email, role: 'provider',
-    householdId: null, providerId,
+    householdId: null, providerId, partnerId: null,
   };
 }
 

@@ -26,6 +26,7 @@ export interface PortalSession {
   role: PortalRole;
   householdId: string | null;
   providerId: string | null;
+  partnerId: string | null;
 }
 
 export function hashToken(token: string): string {
@@ -54,6 +55,7 @@ export function claimsFor(session: PortalSession): Record<string, string> {
   };
   if (session.householdId) claims.ccn_household_id = session.householdId;
   if (session.providerId) claims.ccn_provider_id = session.providerId;
+  if (session.partnerId) claims.ccn_partner_id = session.partnerId;
   return claims;
 }
 
@@ -72,14 +74,16 @@ export async function getPortalSession(): Promise<PortalSession | null> {
   const { query } = await getDb();
   const [row] = await query<{
     user_id: string; email: string; display_name: string; role: string;
-    household_id: string | null; provider_id: string | null; disabled_at: string | null;
+    household_id: string | null; provider_id: string | null; partner_id: string | null;
+    disabled_at: string | null;
   }>(
     `SELECT u.id AS user_id, u.email, u.display_name, u.role::text AS role, u.disabled_at,
-            hu.household_id, pu.provider_id
+            hu.household_id, pu.provider_id, ru.partner_id
        FROM sessions s
        JOIN users u ON u.id = s.user_id
        LEFT JOIN household_users hu ON hu.user_id = u.id
        LEFT JOIN provider_users pu ON pu.user_id = u.id
+       LEFT JOIN partner_users ru ON ru.user_id = u.id
       WHERE s.token_hash = $1 AND s.expires_at > now()
       LIMIT 1`,
     [hashToken(token)],
@@ -95,6 +99,7 @@ export async function getPortalSession(): Promise<PortalSession | null> {
     role: row.role as PortalRole,
     householdId: row.household_id,
     providerId: row.provider_id,
+    partnerId: row.partner_id,
   };
 }
 

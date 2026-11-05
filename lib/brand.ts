@@ -27,6 +27,17 @@ export const DISPLAY_NAME = process.env.NEXT_PUBLIC_DISPLAY_NAME ?? LEGAL_NAME;
 export const PHONE = process.env.NEXT_PUBLIC_PHONE ?? PENDING_PHONE;
 export const STREET = process.env.NEXT_PUBLIC_STREET ?? null;
 
+/**
+ * The person a partner referral is acknowledged by. Web build spec § 4.3: the
+ * acknowledgement "names a real person and gives a direct line".
+ *
+ * That is the whole trust mechanism of the partner programme — a discharge planner
+ * sending a family somewhere wants to know who picked it up, not that "your request is
+ * important to us". Unset, the acknowledgement omits the name rather than printing a
+ * placeholder: no name is better than a fake one.
+ */
+export const OPERATOR_NAME = process.env.NEXT_PUBLIC_OPERATOR_NAME?.trim() || null;
+
 /** True once counsel has cleared a name and it is configured. */
 export function legalNameResolved(): boolean {
   return LEGAL_NAME !== PENDING_LEGAL_NAME && LEGAL_NAME.trim().length > 0;
