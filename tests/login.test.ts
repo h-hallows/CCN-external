@@ -16,6 +16,9 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { DbHandle } from '@h-hallows/core/db';
 import { seededDb } from '@h-hallows/core/testing';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { ROOT } from './importGraph';
 
 let db: DbHandle;
 
@@ -118,5 +121,68 @@ describe('a portal user can ask for their own sign-in link', () => {
            FROM users WHERE id = $1`, [user.id]);
     } catch { denied = true; }
     expect(denied, 'the constraint no longer catches the original bug').toBe(true);
+  });
+});
+
+/**
+ * Accepting an invite: the order of the two statements, which is a correctness
+ * property and not a style one.
+ *
+ * The route used to claim the invite and then refuse the session swap, so a single
+ * click from a browser already signed in as somebody else burned the link. The security
+ * property held — no takeover — and the availability one did not: the real recipient
+ * got "that link is no longer valid" while the operator's screen showed an accepted
+ * invite and assumed they were in. The comment in the file claimed the invite was left
+ * unconsumed. It was not, and nothing tested it.
+ *
+ * There is no runtime moment at which the mistake is visible from inside the route, so
+ * the order is asserted from the source, and the claim's own semantics from the
+ * database.
+ */
+describe('accepting an invite', () => {
+  const route = readFileSync(
+    path.join(ROOT, 'app/invite/[token]/route.ts'), 'utf8');
+
+  it('refuses a session swap before it claims the invite, not after', () => {
+    const refusal = route.indexOf("redirect('/login?error=signed-in-as-someone-else')");
+    const claim = route.indexOf('UPDATE portal_invites');
+    expect(refusal).toBeGreaterThan(-1);
+    expect(claim).toBeGreaterThan(-1);
+    expect(refusal).toBeLessThan(claim);
+  });
+
+  it('still claims it in one atomic statement, so two clicks cannot both win', async () => {
+    const user = await one<{ id: string; email: string }>(
+      `INSERT INTO users (email, display_name, role)
+       VALUES ('invite-race@example.com', 'Race', 'household') RETURNING id, email`);
+    const household = await one<{ id: string }>(
+      `SELECT id FROM households ORDER BY id LIMIT 1`);
+    await db.query(
+      `INSERT INTO household_users (user_id, household_id) VALUES ($1, $2)
+       ON CONFLICT DO NOTHING`, [user.id, household.id]);
+    await db.query(
+      `INSERT INTO portal_invites (email, role, household_id, token_hash, issued_by,
+                                   expires_at)
+       VALUES ($1, 'household', $2, 'race-hash', 'test', now() + interval '1 day')`,
+      [user.email, household.id]);
+
+    const claim = () => db.query(
+      `UPDATE portal_invites SET accepted_at = now()
+        WHERE token_hash = 'race-hash' AND accepted_at IS NULL
+          AND revoked_at IS NULL AND expires_at > now()
+        RETURNING id`);
+
+    expect(await claim()).toHaveLength(1);
+    expect(await claim()).toHaveLength(0);
+  });
+
+  it('leaves the invite usable when the route refuses — the whole point of the order', async () => {
+    /*
+     * The refusal path returns before the UPDATE runs, so this asserts what the route
+     * does NOT do: nothing between the read and the refusal touches accepted_at.
+     */
+    const before = route.slice(0, route.indexOf('UPDATE portal_invites'));
+    expect(before).not.toMatch(/accepted_at\s*=/);
+    expect(before).toContain('SELECT email FROM portal_invites');
   });
 });

@@ -13,6 +13,7 @@
  * I1 and I2. A couple of assertions below check that they still do not.
  */
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { DbHandle } from '@h-hallows/core/db';
 import { seededDb } from '@h-hallows/core/testing';
@@ -225,8 +226,14 @@ describe('a provider hands documents in; it does not verify itself', () => {
       `SELECT count(*)::text AS n FROM credentials WHERE provider_id = $1`, [myProviderId]);
 
     const result = await submitCredential(me, {
-      type: 'live_scan', identifier: 'ATI-12345',
-      documentUrl: 'https://example.com/scan.pdf', note: 'Done last week',
+      type: 'live_scan',
+      identifier: 'ATI-12345',
+      note: 'Done last week',
+      file: {
+        name: 'scan.pdf',
+        contentType: 'application/pdf',
+        bytes: Buffer.from('%PDF-1.4 a scanned Live Scan result'),
+      },
     });
     expect(result.ok).toBe(true);
 
@@ -239,6 +246,79 @@ describe('a provider hands documents in; it does not verify itself', () => {
          FROM credential_submissions WHERE provider_id = $1`, [myProviderId]);
     expect(Number(subs.n)).toBe(1);
     expect(subs.state).toBe('submitted');
+  });
+
+  it('holds the document itself, against the right provider, and links the submission', async () => {
+    const body = Buffer.from('%PDF-1.4 my renewed TB clearance');
+    const digest = createHash('sha256').update(body).digest('hex');
+
+    const result = await submitCredential(me, {
+      type: 'tb_clearance',
+      identifier: '',
+      note: '',
+      file: { name: 'tb.pdf', contentType: 'application/pdf', bytes: body },
+    });
+    expect(result.ok).toBe(true);
+
+    const doc = await one<{
+      id: string; provider_id: string; kind: string; sha256_hex: string;
+      uploaded_by: string; visible_to_subject: boolean;
+    }>(
+      `SELECT id, provider_id, kind::text AS kind, sha256_hex, uploaded_by,
+              visible_to_subject
+         FROM documents WHERE sha256_hex = $1`, [digest]);
+
+    expect(doc.provider_id).toBe(myProviderId);
+    expect(doc.kind).toBe('credential');
+    expect(doc.uploaded_by).toBe('provider');
+    // Handing something in does not make it something the registry shares back.
+    expect(doc.visible_to_subject).toBe(false);
+
+    const sub = await one<{ document_id: string | null }>(
+      `SELECT document_id FROM credential_submissions
+        WHERE provider_id = $1 AND type = 'tb_clearance'`, [myProviderId]);
+    expect(sub.document_id).toBe(doc.id);
+  });
+
+  it('refuses a file type it does not keep, and says which problem it was', async () => {
+    const before = await one<{ n: string }>(
+      `SELECT count(*)::text AS n FROM credential_submissions WHERE provider_id = $1`,
+      [myProviderId]);
+
+    const wrongType = await submitCredential(me, {
+      type: 'cpr', identifier: '', note: '',
+      file: { name: 'x.docx', contentType: 'application/msword', bytes: Buffer.from('x') },
+    });
+    expect(wrongType).toEqual({ ok: false, reason: 'file_type' });
+
+    const tooBig = await submitCredential(me, {
+      type: 'cpr', identifier: '', note: '',
+      file: {
+        name: 'huge.pdf',
+        contentType: 'application/pdf',
+        bytes: Buffer.alloc(10 * 1024 * 1024 + 1, 1),
+      },
+    });
+    expect(tooBig).toEqual({ ok: false, reason: 'file_large' });
+
+    // Nothing was written on the way to either refusal.
+    const after = await one<{ n: string }>(
+      `SELECT count(*)::text AS n FROM credential_submissions WHERE provider_id = $1`,
+      [myProviderId]);
+    expect(after.n).toBe(before.n);
+  });
+
+  it('a submission with no file at all is still allowed', async () => {
+    // Some credentials are verified against a register rather than a piece of paper,
+    // and refusing the submission would mean refusing to be told about them.
+    const result = await submitCredential(me, {
+      type: 'auto_insurance', identifier: 'POL-9', note: 'Renewed with the same insurer',
+    });
+    expect(result.ok).toBe(true);
+    const sub = await one<{ document_id: string | null }>(
+      `SELECT document_id FROM credential_submissions
+        WHERE provider_id = $1 AND type = 'auto_insurance'`, [myProviderId]);
+    expect(sub.document_id).toBeNull();
   });
 
   it('tells the provider when OUR re-check is overdue, without blocking them', async () => {

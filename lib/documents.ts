@@ -12,11 +12,16 @@
  * as it stood when it was delivered, not the current wording. That matters: a
  * compliance record that cannot prove WHICH text was delivered is a weaker record.
  *
- * NOT HERE, because nothing models them yet: the signed service agreement, invoices and
- * the LTC claim packet. § 4.1 lists all three. There is no table for a document of any
- * kind — the architecture spec's § 9 schema additions do not include one — and
- * inventing a store plus its retention rules is a decision to take deliberately rather
- * than in passing. The screen says so rather than pretending the list is complete.
+ * Alongside those, anything the operator has filed against the family or one of their
+ * cases AND deliberately shared. Core migration 0015 holds the bytes; `filedDocuments`
+ * below reads the index, and the file itself comes through `/portal/documents/[id]`.
+ * Sharing is off by default — the registry's own file is not the family's to read — so
+ * this screen shows what someone chose to show them, not everything that exists.
+ *
+ * STILL NOT HERE: invoices and the LTC claim packet. Both are § 4.1 items and both are
+ * downstream of payments, which counsel question 3 blocks — § 687.2(h) is an account
+ * structure decision. The screen names them rather than quietly omitting them, so the
+ * absence reads as a gap and not as "you have no invoices".
  */
 import {
   NURSES_REGISTRY_DISCLOSURE, ORAL_DISCLOSURE, WRITTEN_STATEMENT, COMPLAINT_CONTACTS_DOCUMENT,
@@ -184,9 +189,82 @@ export async function caseDocuments(session: PortalSession): Promise<CaseDocumen
 /**
  * The things § 4.1 lists that have nowhere to live yet. Named on the screen rather than
  * quietly omitted, so the absence reads as a gap rather than as "you have no invoices".
+ *
+ * The signed service agreement left this list when documents got a home: it is now
+ * something the operator files and shares, and it appears below if they have.
  */
 export const NOT_YET_IN_THE_PORTAL = [
-  'your signed service agreement',
   'invoices',
   'the long-term care claim packet',
 ] as const;
+
+export interface FiledDocument {
+  id: string;
+  filename: string;
+  kind: string;
+  byteSize: number;
+  filedOn: string;
+  note: string | null;
+  /** Null when it is filed against the family rather than one case. */
+  caseId: string | null;
+}
+
+/** What the household may read, in the household's words. */
+const FILED_LABEL: Record<string, string> = {
+  registry_agreement: 'Signed agreement',
+  written_notice: 'Written notice',
+  written_statement: 'The written statement we sent you',
+  nurse_disclosure: 'Nurses’ registry disclosure',
+  correspondence: 'Letter',
+  credential: 'Document',
+  other: 'Document',
+};
+
+export function filedLabel(kind: string): string {
+  return FILED_LABEL[kind] ?? 'Document';
+}
+
+/**
+ * Documents the operator filed against this family and chose to share.
+ *
+ * `bytes` is deliberately not selected. The index is a list; the file comes through the
+ * download route one at a time, so a screen listing twelve documents does not pull
+ * twelve files out of the database to render their names.
+ *
+ * Row-level security does the rest: `documents_household_select` requires
+ * `visible_to_subject`, an unredacted row, and either the family's own id or one of
+ * their cases. There is no WHERE clause here doing that work, because a WHERE clause is
+ * something a later edit can drop.
+ */
+export async function filedDocuments(session: PortalSession): Promise<FiledDocument[]> {
+  if (!session.householdId) return [];
+  return asPortalUser(session, async (tx) => {
+    const rows = await tx.query<{
+      id: string; filename: string; kind: string; byte_size: number;
+      uploaded_at: string; note: string | null; case_id: string | null;
+    }>(
+      /*
+       * The WHERE narrows; it does not authorise. Both predicates are already required
+       * by `documents_household_select`, so dropping them could not widen what comes
+       * back — but having them here lets the planner use the partial-index-shaped
+       * access path instead of evaluating `household_owns_case()`, a SECURITY DEFINER
+       * function, once per row in the table. The ownership test stays in the policy,
+       * where a later edit to this file cannot remove it.
+       */
+      `SELECT id, filename, kind::text AS kind, byte_size,
+              uploaded_at::text AS uploaded_at, note, case_id
+         FROM documents
+        WHERE visible_to_subject AND redacted_at IS NULL
+        ORDER BY uploaded_at DESC`,
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      filename: r.filename,
+      kind: r.kind,
+      byteSize: Number(r.byte_size),
+      filedOn: r.uploaded_at.slice(0, 10),
+      note: r.note,
+      caseId: r.case_id,
+    }));
+  });
+}

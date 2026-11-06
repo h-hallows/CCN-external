@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation';
 import { getPortalSession } from '@/lib/session';
-import { NOT_YET_IN_THE_PORTAL, caseDocuments } from '@/lib/documents';
+import {
+  NOT_YET_IN_THE_PORTAL, caseDocuments, filedDocuments, filedLabel,
+} from '@/lib/documents';
 import { Prose, Section, Stack } from '@/components/layout';
 
 export const dynamic = 'force-dynamic';
@@ -18,9 +20,12 @@ const CARE_LABEL: Record<string, string> = {
 export default async function Documents() {
   const session = await getPortalSession();
   if (!session) redirect('/login');
-  const cases = await caseDocuments(session);
+  const [cases, filed] = await Promise.all([
+    caseDocuments(session),
+    filedDocuments(session),
+  ]);
 
-  if (cases.length === 0) {
+  if (cases.length === 0 && filed.length === 0) {
     return (
       <Section title="Your documents" as="h1">
         <Prose>
@@ -29,6 +34,10 @@ export default async function Documents() {
       </Section>
     );
   }
+
+  const size = (bytes: number) => (bytes < 1024 * 1024
+    ? `${Math.max(1, Math.round(bytes / 1024))} KB`
+    : `${(bytes / 1048576).toFixed(1)} MB`);
 
   return (
     <Stack gap="lg">
@@ -114,22 +123,65 @@ export default async function Documents() {
             ))}
           </div>
 
-          {/*
-            * § 4.1 lists three more. Nothing models a document of any kind yet, and
-            * saying so is better than a screen that silently implies this is all there
-            * is to your file.
-            */}
-          <Prose>
-            <p style={{
-              marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid var(--line)',
-              fontSize: 'var(--step--1)', color: 'var(--ink-3)',
-            }}>
-              Not here yet: {NOT_YET_IN_THE_PORTAL.join(', ')}. Ask us and we will send
-              them to you directly while we build that part.
-            </p>
-          </Prose>
         </Section>
       ))}
+
+      {/*
+        * Files, as opposed to the statutory texts above. Everything here is something
+        * somebody chose to share: filing a document does not share it, so an empty list
+        * means nothing has been shared rather than that nothing exists.
+        *
+        * Each one downloads. Nothing renders inline — a PDF opened in the page runs in
+        * this origin, where a live session lives.
+        */}
+      <Section title="Files we have shared with you" as="h2">
+        {filed.length === 0 ? (
+          <Prose>
+            <p style={{ color: 'var(--ink-2)' }}>
+              Nothing yet. When we send you something in writing — a signed agreement, a
+              letter — a copy appears here as well.
+            </p>
+          </Prose>
+        ) : (
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+            {filed.map((f) => (
+              <li
+                key={f.id}
+                style={{
+                  borderTop: '1px solid var(--line)',
+                  paddingBlock: '.9rem',
+                  maxWidth: 'var(--measure)',
+                }}
+              >
+                <a href={`/portal-file/${f.id}`} style={{ fontWeight: 500 }}>
+                  {f.filename}
+                </a>
+                <p style={{
+                  margin: '.2rem 0 0', fontSize: 'var(--step--1)', color: 'var(--ink-2)',
+                }}>
+                  {filedLabel(f.kind)} · {f.filedOn} · {size(f.byteSize)}
+                  {f.note ? ` · ${f.note}` : null}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {/*
+          * Both remaining § 4.1 items are downstream of payments, which counsel
+          * question 3 blocks. Saying so is better than a screen that silently implies
+          * this is the whole of your file.
+          */}
+        <Prose>
+          <p style={{
+            marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid var(--line)',
+            fontSize: 'var(--step--1)', color: 'var(--ink-3)',
+          }}>
+            Not here yet: {NOT_YET_IN_THE_PORTAL.join(' and ')}. Ask us and we will send
+            them to you directly while we build that part.
+          </p>
+        </Prose>
+      </Section>
     </Stack>
   );
 }

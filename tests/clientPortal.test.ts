@@ -9,6 +9,7 @@
  * The profile is the one field a household may write anywhere in this system, so what
  * it may NOT write is tested at least as hard as what it may.
  */
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -19,7 +20,7 @@ import type { DbHandle } from '@h-hallows/core/db';
 import { seededDb } from '@h-hallows/core/testing';
 import { caseProfiles, saveCaseProfile, PROFILE_MAX } from '@/lib/caseProfile';
 import { caseSchedules, byDay } from '@/lib/schedule';
-import { caseDocuments } from '@/lib/documents';
+import { caseDocuments, filedDocuments } from '@/lib/documents';
 import { feedbackSubject, saveFeedback } from '@/lib/feedback';
 import { householdRequests, REQUEST_STATUS } from '@/lib/request';
 import {
@@ -422,5 +423,94 @@ describe('no client component drags the server into the browser', () => {
         }
       }
     }
+  });
+});
+
+/**
+ * Files the operator shared. Core migration 0015.
+ *
+ * The two things worth proving: sharing is off until somebody turns it on, and one
+ * family cannot read another's file. Both are row-level security rather than a WHERE
+ * clause, so each test runs through `asPortalUser` as a real signed-in household.
+ */
+describe('files shared with the family', () => {
+  const body = (text: string) => Buffer.from(`%PDF-1.4 ${text}`);
+  const digest = (b: Buffer) => createHash('sha256').update(b).digest('hex');
+
+  async function fileAgainst(
+    column: 'case_id' | 'household_id',
+    id: string,
+    text: string,
+    shared: boolean,
+  ): Promise<string> {
+    const bytes = body(text);
+    const row = await one<{ id: string }>(
+      `INSERT INTO documents (kind, ${column}, filename, content_type, byte_size,
+                              sha256_hex, bytes, uploaded_by, visible_to_subject)
+       VALUES ('registry_agreement', $1, $2, 'application/pdf', $3, $4, $5, 'operator', $6)
+       RETURNING id`,
+      [id, `${text}.pdf`, bytes.length, digest(bytes), bytes, shared]);
+    return row.id;
+  }
+
+  it('shows what was shared and not what was merely filed', async () => {
+    const shared = await fileAgainst('case_id', caseId, 'shared-with-you', true);
+    const kept = await fileAgainst('case_id', caseId, 'our-own-file', false);
+
+    const seen = await filedDocuments(ours);
+    expect(seen.map((d) => d.id)).toContain(shared);
+    expect(seen.map((d) => d.id)).not.toContain(kept);
+  });
+
+  it('follows the family across their cases as well as on one case', async () => {
+    const householdId = (await one<{ household_id: string }>(
+      `SELECT household_id FROM cases WHERE id = $1`, [caseId])).household_id;
+    const onFamily = await fileAgainst('household_id', householdId, 'about-the-family', true);
+    const seen = await filedDocuments(ours);
+    const row = seen.find((d) => d.id === onFamily);
+    expect(row).toBeTruthy();
+    expect(row!.caseId).toBeNull();
+  });
+
+  it('another family sees none of it', async () => {
+    const shared = await fileAgainst('case_id', caseId, 'not-theirs', true);
+    const seen = await filedDocuments(theirs);
+    expect(seen.map((d) => d.id)).not.toContain(shared);
+  });
+
+  it('a redacted document disappears from their screen', async () => {
+    const id = await fileAgainst('case_id', caseId, 'misfiled', true);
+    expect((await filedDocuments(ours)).map((d) => d.id)).toContain(id);
+
+    await db.query(`UPDATE documents SET visible_to_subject = false WHERE id = $1`, [id]);
+    await db.query(
+      `UPDATE documents SET redacted_at = now(), redacted_by = 'operator',
+                            redaction_reason = 'wrong family', bytes = NULL
+        WHERE id = $1`, [id]);
+
+    expect((await filedDocuments(ours)).map((d) => d.id)).not.toContain(id);
+  });
+
+  it('the index never pulls the bytes out of the database', () => {
+    /*
+     * A list of twelve documents must not load twelve files to render their names. The
+     * assertion is on the query rather than on the result, because `SELECT *` would
+     * pass a result-shaped test the moment someone added a field to the interface.
+     */
+    const source = readFileSync(path.join(ROOT, 'lib/documents.ts'), 'utf8');
+    const fn = source.slice(source.indexOf('export async function filedDocuments'));
+    expect(fn).not.toMatch(/SELECT \*/);
+    expect(fn).not.toMatch(/\bbytes\b/);
+  });
+
+  it('the download route authorises through the policy and always attaches', () => {
+    const route = readFileSync(
+      path.join(ROOT, 'app/portal-file/[documentId]/route.ts'), 'utf8');
+    expect(route).toContain('asPortalUser');
+    expect(route).toContain('attachment; filename=');
+    expect(route).not.toMatch(/['"`]inline/);
+    // No hand-written ownership check: the policy decides, and a second check here
+    // would be a second answer to drift from the first.
+    expect(route).not.toMatch(/household_id\s*=|WHERE .*visible_to_subject/);
   });
 });

@@ -17,6 +17,7 @@
  */
 import { credStatus, eligibility, requiredFor, LABEL } from '@h-hallows/core/domain';
 import type { CredentialType, ProviderType } from '@h-hallows/core/schema';
+import { createHash, randomUUID } from 'node:crypto';
 import { asPortalUser } from './portalDb';
 import type { PortalSession } from './session';
 
@@ -53,7 +54,12 @@ export interface ProviderSelf {
 
 export type SaveResult =
   | { ok: true }
-  | { ok: false; reason: 'not_found' | 'invalid' | 'refused' | 'failed'; message?: string };
+  | {
+      ok: false;
+      reason: 'not_found' | 'invalid' | 'refused' | 'failed'
+        | 'file_type' | 'file_empty' | 'file_large';
+      message?: string;
+    };
 
 interface SelfRow {
   id: string; full_name: string; preferred_name: string | null; type: string;
@@ -359,22 +365,72 @@ export async function credentialStanding(
  * requirement being met. Submissions are a different table that nothing computes
  * eligibility from, and the operator creates the verified row.
  */
+/** What the registry keeps. Mirrors the console's list; the database enforces the size. */
+const ACCEPTED_TYPES = new Set([
+  'application/pdf', 'image/jpeg', 'image/png', 'image/heic', 'image/tiff',
+]);
+const MAX_BYTES = 10 * 1024 * 1024;
+
 export async function submitCredential(
   session: PortalSession,
-  input: { type: string; identifier: string; documentUrl: string; note: string },
+  input: {
+    type: string;
+    identifier: string;
+    note: string;
+    /** The document itself. A URL is not a document — see the header on migration 0015. */
+    file?: { name: string; contentType: string; bytes: Buffer } | undefined;
+  },
 ): Promise<SaveResult> {
   if (!session.providerId) return { ok: false, reason: 'not_found' };
   const blank = (v: string) => (v.trim() === '' ? null : v.trim());
+
+  const file = input.file;
+  if (file) {
+    if (!ACCEPTED_TYPES.has(file.contentType)) return { ok: false, reason: 'file_type' };
+    if (file.bytes.length === 0) return { ok: false, reason: 'file_empty' };
+    if (file.bytes.length > MAX_BYTES) return { ok: false, reason: 'file_large' };
+  }
+
   try {
-    await asPortalUser(session, (tx) => tx.query(
+    await asPortalUser(session, async (tx) => {
+      let documentId: string | null = null;
+
+      if (file) {
+        /*
+         * The id is generated here rather than asked for back.
+         *
+         * Under RLS, `INSERT ... RETURNING` also needs a SELECT policy matching the new
+         * row — and a provider's SELECT policy on `documents` requires
+         * `visible_to_subject`, which their own INSERT is forbidden from setting. So
+         * the insert would succeed and the RETURNING would be refused, which reads as a
+         * failed upload and is not one.
+         */
+        documentId = randomUUID();
+        await tx.query(
+          `INSERT INTO documents
+             (id, kind, provider_id, filename, content_type, byte_size, sha256_hex,
+              bytes, uploaded_by)
+           VALUES ($1, 'credential', $2, $3, $4, $5, $6, $7, 'provider')`,
+          [
+            documentId, session.providerId, file.name.slice(0, 200), file.contentType,
+            file.bytes.length,
+            createHash('sha256').update(file.bytes).digest('hex'),
+            file.bytes,
+          ],
+        );
+      }
+
       // No state, no reviewed_at, no reviewed_by, no credential_id. The policy's
       // WITH CHECK refuses them anyway; not naming them means this statement cannot
       // drift into claiming something has been checked.
-      `INSERT INTO credential_submissions (provider_id, type, identifier, document_url, note)
-       VALUES ($1, $2::credential_type, $3, $4, $5)`,
-      [session.providerId, input.type, blank(input.identifier),
-        blank(input.documentUrl), blank(input.note)],
-    ));
+      await tx.query(
+        `INSERT INTO credential_submissions
+           (provider_id, type, identifier, document_id, note)
+         VALUES ($1, $2::credential_type, $3, $4, $5)`,
+        [session.providerId, input.type, blank(input.identifier), documentId,
+          blank(input.note)],
+      );
+    });
     return { ok: true };
   } catch (err) {
     console.error('[pro] submission refused', err);

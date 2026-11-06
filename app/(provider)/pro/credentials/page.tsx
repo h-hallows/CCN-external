@@ -131,10 +131,21 @@ export default async function ProCredentials() {
           </label>
           <input id="identifier" name="identifier" type="text" maxLength={120} style={fieldStyle} />
 
-          <label htmlFor="documentUrl" className="label" style={{ display: 'block', margin: '1.1rem 0 .35rem' }}>
-            A link to it
+          <label htmlFor="file" className="label" style={{ display: 'block', margin: '1.1rem 0 .35rem' }}>
+            A copy of it
           </label>
-          <input id="documentUrl" name="documentUrl" type="url" maxLength={500} style={fieldStyle} />
+          <input
+            id="file"
+            name="file"
+            type="file"
+            accept="application/pdf,image/jpeg,image/png,image/heic,image/tiff"
+            style={fieldStyle}
+          />
+          <p style={{ fontSize: 'var(--step--1)', color: 'var(--ink-2)', marginTop: '.35rem' }}>
+            A PDF or a photo, up to 10 MB. A photo taken on your phone is fine. We hold
+            the copy ourselves rather than keeping a link to it, so it is still here when
+            someone asks years from now.
+          </p>
 
           <label htmlFor="note" className="label" style={{ display: 'block', margin: '1.1rem 0 .35rem' }}>
             Anything we should know (optional)

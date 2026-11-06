@@ -16,7 +16,17 @@ import {
   saveAvailability, saveLimits, savePhoto, saveProviderProfile, saveRate,
   submitCredential, type SaveResult,
 } from '@/lib/pro';
-import { NOT_YOURS, SAVED, SAVE_FAILED, type ProFormState } from '@/lib/proState';
+import {
+  FILE_EMPTY, FILE_TOO_BIG, FILE_WRONG_TYPE, NOT_YOURS, SAVED, SAVE_FAILED,
+  type ProFormState,
+} from '@/lib/proState';
+
+/** Which refusal to say out loud. Anything not here is the generic failure. */
+const FILE_PROBLEM: Record<string, string> = {
+  file_type: FILE_WRONG_TYPE,
+  file_empty: FILE_EMPTY,
+  file_large: FILE_TOO_BIG,
+};
 
 const text = (form: FormData, key: string): string => {
   const v = form.get(key);
@@ -102,13 +112,24 @@ export async function handInCredential(
   const type = text(form, 'type');
   if (type === '') return { state: 'error', message: 'Choose what this is first.' };
 
+  const upload = form.get('file');
+  const file = upload instanceof File && upload.size > 0
+    ? {
+      name: upload.name,
+      contentType: upload.type,
+      bytes: Buffer.from(await upload.arrayBuffer()),
+    }
+    : undefined;
+
   const result = await submitCredential(session, {
     type,
     identifier: text(form, 'identifier'),
-    documentUrl: text(form, 'documentUrl'),
     note: text(form, 'note'),
+    file,
   });
-  if (!result.ok) return { state: 'error', message: SAVE_FAILED };
+  if (!result.ok) {
+    return { state: 'error', message: FILE_PROBLEM[result.reason] ?? SAVE_FAILED };
+  }
   revalidatePath('/pro/credentials');
   return {
     state: 'saved',

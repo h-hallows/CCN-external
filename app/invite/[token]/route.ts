@@ -35,12 +35,38 @@ export async function GET(
    * theirs.
    *
    * Re-clicking your OWN link is fine and stays fine, which is the common case when
-   * somebody re-opens an email. The invite is left unconsumed so the real recipient
-   * can still use it.
+   * somebody re-opens an email.
+   *
+   * THE ORDER HERE IS THE WHOLE POINT, and it was wrong.
+   *
+   * The claim and the session check were the other way round: the UPDATE marked the
+   * invite accepted and only then did the refusal run. So the refusal protected the
+   * session and burned the link — one click from a browser already signed in as
+   * somebody else, which is exactly what happens on a shared computer or when a family
+   * member opens a provider's email, and the real recipient got "that link is no longer
+   * valid" while the operator's screen showed an accepted invite and assumed they were
+   * in. The comment above this block claimed the invite was left unconsumed. It was not.
+   *
+   * So: read first, refuse, and only then claim. The claim is still one atomic
+   * statement, so two simultaneous clicks still cannot both succeed — the read above it
+   * only decides whether to attempt one.
    */
   const current = await getPortalSession();
 
   const { query } = await getDb();
+
+  const [candidate] = await query<{ email: string }>(
+    `SELECT email FROM portal_invites
+      WHERE token_hash = $1
+        AND accepted_at IS NULL
+        AND revoked_at IS NULL
+        AND expires_at > now()`,
+    [hashToken(token)],
+  );
+
+  if (candidate && current && current.email !== candidate.email) {
+    redirect('/login?error=signed-in-as-someone-else');
+  }
 
   // Single use, unexpired, unrevoked. Claimed in the same statement that reads it, so
   // two simultaneous clicks cannot both succeed.
@@ -59,10 +85,6 @@ export async function GET(
   );
 
   if (!invite) redirect('/login?error=invite');
-
-  if (current && current.email !== invite.email) {
-    redirect('/login?error=signed-in-as-someone-else');
-  }
 
   /*
    * `disabled_at` is NOT cleared here any more.
