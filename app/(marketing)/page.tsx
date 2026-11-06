@@ -1,14 +1,15 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { Prose, Section, Stack } from '@/components/layout';
-import { DISPLAY_NAME, LEGAL_NAME } from '@/lib/brand';
+import { DISPLAY_NAME, LEGAL_NAME, publicMetadata, brandBlockers } from '@/lib/brand';
 
-export const metadata: Metadata = {
-  title: DISPLAY_NAME,
+export const metadata: Metadata = publicMetadata({
+  // `absolute`, or the root template appends the name to itself.
+  title: { absolute: DISPLAY_NAME },
   description:
     'A private nursing and caregiver referral registry serving Century City and West '
     + 'Los Angeles. We refer; you engage directly.',
-};
+});
 
 /**
  * LocalBusiness only. Never MedicalBusiness, HomeHealthCareService, Physician or
@@ -33,10 +34,20 @@ const jsonLd = () => ({
 export default function Home() {
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd()) }}
-      />
+      {/*
+        * Structured data is the strongest advertisement on the page — a search engine
+        * reads LocalBusiness as the identity of the business, not as decoration. While
+        * the name is unresolved this was emitting `"name": "PENDING_LEGAL_NAME"` with
+        * the full description, beneath a body saying the site is not published. Nothing
+        * is claimed until there is a correct name to claim it under, which is what
+        * § 1812.533(b)(2) asks for.
+        */}
+      {brandBlockers().length === 0 ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd()) }}
+        />
+      ) : null}
 
       <Stack gap="lg">
         <Section>

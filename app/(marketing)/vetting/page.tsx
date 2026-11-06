@@ -1,12 +1,13 @@
 import type { Metadata } from 'next';
+import { publicMetadata } from '@/lib/brand';
 import { Prose, Section, Stack } from '@/components/layout';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicMetadata({
   title: 'Vetting',
   description:
     'What we check before anyone is put forward, how we check it, and what we do when '
     + 'something lapses.',
-};
+});
 
 export default function Vetting() {
   return (

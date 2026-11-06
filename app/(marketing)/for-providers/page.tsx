@@ -1,12 +1,13 @@
 import type { Metadata } from 'next';
+import { publicMetadata } from '@/lib/brand';
 import { Prose, Section, Stack } from '@/components/layout';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicMetadata({
   title: 'For nurses and caregivers',
   description:
     'How referrals work here: you set your rate, you choose what you take, and we never '
     + 'charge you anything.',
-};
+});
 
 export default function ForProviders() {
   return (

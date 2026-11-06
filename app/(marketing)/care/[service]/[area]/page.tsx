@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { publicMetadata } from '@/lib/brand';
 import { notFound } from 'next/navigation';
 import { CROSSED_PAGES, areaName, crossedPage } from '@/content/crossed';
 import { crossedPath, faqJsonLd } from '@/lib/crossed';
@@ -33,12 +34,12 @@ export async function generateMetadata(
   const { service, area } = await params;
   const page = crossedPage(service, area);
   if (!page) return {};
-  return {
+  return publicMetadata({
     title: page.title,
     description: page.summary,
     alternates: { canonical: `${siteUrl()}${crossedPath(page)}` },
     openGraph: { title: page.title, description: page.summary, type: 'article' },
-  };
+  });
 }
 
 export default async function CrossedPage(

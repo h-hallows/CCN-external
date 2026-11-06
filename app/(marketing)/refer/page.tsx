@@ -1,14 +1,14 @@
 import type { Metadata } from 'next';
-import { OPERATOR_NAME, contactLine } from '@/lib/brand';
+import { OPERATOR_NAME, contactLine, publicMetadata } from '@/lib/brand';
 import { PartnerReferralForm } from '@/components/PartnerReferralForm';
 import { Prose, Section, Stack } from '@/components/layout';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicMetadata({
   title: 'Refer a patient',
   description:
     'For discharge planners, care managers and practices. One form, no account, and '
     + 'a call back from a named person.',
-};
+});
 
 export default function Refer() {
   const line = contactLine();

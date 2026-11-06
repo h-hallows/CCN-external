@@ -7,7 +7,7 @@
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { RATE_REVALIDATE_SECONDS } from '@/lib/rates';
 
 const ROOT = new URL('..', import.meta.url).pathname;
@@ -306,5 +306,73 @@ describe('a page that cannot carry the required footer is not served', () => {
 
   it('and is not indexable, so it cannot outrank the real site later', () => {
     expect(read(join(ROOT, 'app/(marketing)/layout.tsx'))).toContain('index: false');
+  });
+});
+
+/**
+ * Metadata is withheld with the body, not alongside it.
+ *
+ * Found on the live deployment. The marketing layout refuses to render the body while
+ * `brandBlockers()` is non-empty, but metadata is not the body: every title read
+ * "… · PENDING_LEGAL_NAME" — an internal sentinel in the browser tab and in every
+ * link preview — and each page still served its real marketing description under a
+ * body saying the site is not published.
+ *
+ * A meta description is advertising copy, and § 1812.533(b)(2) wanting the correct
+ * name in every advertisement is the whole reason the body is withheld. Shipping the
+ * description while withholding the page is the same breach wearing a different tag.
+ */
+describe('nothing advertises while the brand is withheld', () => {
+  it('every public page wraps its metadata in the gate', () => {
+    for (const page of marketingPages.filter((p) => p.endsWith('page.tsx'))) {
+      const src = read(page);
+      const sets = src.includes('export const metadata')
+        || src.includes('generateMetadata');
+      if (!sets) continue;
+      expect(
+        src.includes('publicMetadata'),
+        `${rel(page)} sets metadata without publicMetadata, so it advertises while withheld`,
+      ).toBe(true);
+    }
+  });
+
+  it('the gate strips the title, description and openGraph', async () => {
+    const { publicMetadata, NOT_PUBLISHED_TITLE } = await import('@/lib/brand');
+    const base = {
+      title: 'Post-Surgical Recovery Care in Beverly Hills',
+      description: 'Private recovery cover, arranged after a call.',
+      openGraph: { title: 'x', description: 'y' },
+    };
+    const out = publicMetadata(base) as Record<string, unknown>;
+    // tests/setup.ts configures a name and phone, so nothing is blocked here and the
+    // base passes through untouched — which is the branch that must not over-fire.
+    expect(out.description).toBe(base.description);
+    expect(out.title).toBe(base.title);
+    expect(NOT_PUBLISHED_TITLE).toBe('Not yet published');
+  });
+
+  it('withholds when the name is missing', async () => {
+    // Re-import with the brand unset, which is the deployed state today.
+    const name = process.env.NEXT_PUBLIC_LEGAL_NAME;
+    const phone = process.env.NEXT_PUBLIC_PHONE;
+    delete process.env.NEXT_PUBLIC_LEGAL_NAME;
+    delete process.env.NEXT_PUBLIC_PHONE;
+    vi.resetModules();
+    try {
+      const brand = await import('@/lib/brand');
+      const out = brand.publicMetadata({
+        title: 'Real marketing title',
+        description: 'Real marketing description.',
+        openGraph: { title: 'x' },
+      }) as Record<string, unknown>;
+      expect(out.description).toBeUndefined();
+      expect(out.openGraph).toBeUndefined();
+      expect(out.title).toEqual({ absolute: brand.NOT_PUBLISHED_TITLE });
+      expect(JSON.stringify(out)).not.toContain('PENDING_LEGAL_NAME');
+    } finally {
+      if (name) process.env.NEXT_PUBLIC_LEGAL_NAME = name;
+      if (phone) process.env.NEXT_PUBLIC_PHONE = phone;
+      vi.resetModules();
+    }
   });
 });

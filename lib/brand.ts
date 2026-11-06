@@ -77,3 +77,30 @@ export function brandBlockers(): string[] {
   }
   return blockers;
 }
+
+/**
+ * Metadata for a public page, withheld while the brand is.
+ *
+ * The marketing layout already refuses to render the body when `brandBlockers()` is
+ * non-empty — but metadata is not part of the body, and on the live deployment it was
+ * still going out: every title read "… · PENDING_LEGAL_NAME", an internal sentinel in
+ * the browser tab and in every link preview, and each page still served its real
+ * marketing description beneath a body saying the site is not published.
+ *
+ * A meta description IS advertising copy. § 1812.533(b)(2) requires the registry's
+ * correct name in every advertisement, which is the whole reason the body is withheld,
+ * so shipping the description while withholding the page is the same breach wearing a
+ * different tag. Wrap every public page's metadata in this.
+ */
+export const NOT_PUBLISHED_TITLE = 'Not yet published';
+
+export function publicMetadata<T extends Record<string, unknown>>(base: T): T {
+  if (brandBlockers().length === 0) return base;
+  return {
+    ...base,
+    title: { absolute: NOT_PUBLISHED_TITLE },
+    description: undefined,
+    openGraph: undefined,
+    robots: { index: false, follow: false },
+  } as unknown as T;
+}

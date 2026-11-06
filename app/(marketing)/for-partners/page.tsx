@@ -1,12 +1,13 @@
 import type { Metadata } from 'next';
+import { publicMetadata } from '@/lib/brand';
 import { Prose, Section, Stack } from '@/components/layout';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicMetadata({
   title: 'For discharge planners and advisers',
   description:
     'Hand us a referral in one step and get a same-day acknowledgement with a named '
     + 'person and a direct line.',
-};
+});
 
 export default function ForPartners() {
   return (

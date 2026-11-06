@@ -1,15 +1,16 @@
 import type { Metadata } from 'next';
+import { publicMetadata } from '@/lib/brand';
 import { Prose, Section, Stack } from '@/components/layout';
 import {
   CREDENTIAL_LABEL, CREDENTIAL_ORDER, currentRateRanges, formatRange, type RateRange,
 } from '@/lib/rates';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicMetadata({
   title: 'Rates',
   description:
     'What care costs in Century City and West Los Angeles, by credential level, and how '
     + 'our fee works.',
-};
+});
 
 /**
  * Hourly. The ranges come from the table the operator maintains, never from this file.

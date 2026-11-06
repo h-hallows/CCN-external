@@ -1,12 +1,13 @@
 import type { Metadata } from 'next';
+import { publicMetadata } from '@/lib/brand';
 import { Prose, Section, Stack } from '@/components/layout';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicMetadata({
   title: 'How it works',
   description:
     'A call, a short list of two or three people, and an introduction. What we do, what '
     + 'you do, and who the provider works for.',
-};
+});
 
 const QUESTIONS = [
   {
