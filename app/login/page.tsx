@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import type { Metadata } from 'next';
 import { getDb } from '@h-hallows/core/db';
+import { mailConfigured, sendMail } from '@h-hallows/core/mail';
 import { getPortalSession, hashToken, newToken } from '@/lib/session';
 import { rateLimit } from '@/lib/rateLimit';
 import { databaseAvailable } from '@/lib/availability';
@@ -22,6 +23,16 @@ export default async function Login({
 
   async function sendLink(formData: FormData) {
     'use server';
+
+    /*
+     * Configuration is decided BEFORE the address is looked up, and must stay that way.
+     * Whether a mailer exists is the same fact for every address; whether a link was
+     * issued is not. Branching after the lookup would turn this form into a way to find
+     * out which families use us — the exact thing the rest of this function is built to
+     * prevent.
+     */
+    if (!mailConfigured()) redirect('/login?error=mail');
+
     const email = String(formData.get('email') ?? '').trim().toLowerCase();
     const h = await headers();
 
@@ -77,7 +88,22 @@ export default async function Login({
       );
       const host = h.get('host') ?? 'localhost:3003';
       const proto = h.get('x-forwarded-proto') ?? 'http';
-      console.log(`\n[portal login] link for ${email}:\n${proto}://${host}/invite/${token}\n`);
+
+      /*
+       * The outcome is deliberately not inspected. This page says the same thing to
+       * every visitor, and a delivery failure is address-specific. Locally sendMail
+       * prints the link because there is nowhere else for it to go; in a deployment it
+       * is sent, and in neither case does it reach the server log.
+       */
+      await sendMail({
+        to: email,
+        subject: 'Your sign-in link',
+        text:
+          'Here is your link.\n\n'
+          + `${proto}://${host}/invite/${token}\n\n`
+          + 'It works once and expires after fifteen minutes. If you did not ask for it, '
+          + 'nothing has happened and you can ignore this.',
+      });
     }
 
     redirect('/login?sent=1');
@@ -86,6 +112,13 @@ export default async function Login({
   return (
     <div className="wrap" style={{ maxWidth: '30rem', paddingBlock: '5rem' }}>
       <h1 style={{ fontSize: 'var(--step-2)' }}>Sign in</h1>
+
+      {params.error === 'mail' ? (
+        <p style={{ color: 'var(--crit)', fontSize: 'var(--step--1)' }}>
+          Signing in is unavailable just now. Please call us and we will let you in by
+          hand. Nothing is wrong with your account.
+        </p>
+      ) : null}
 
       {params.error === 'invite' ? (
         <p style={{ color: 'var(--crit)', fontSize: 'var(--step--1)' }}>

@@ -39,16 +39,10 @@ every source file, and in deployment the database role does not hold the privile
 ## Running it
 
 ```bash
-npm install        # needs GITHUB_PACKAGES_TOKEN; see "Before this installs"
+npm install
 npm run dev        # port 3003
 npm run ci         # copy lint, brand lint, typecheck, tests
 ```
-
-## Before this installs
-
-`@h-hallows/core` has to be published to GitHub Packages from CCN-Registry. See
-`PUBLISHING.md` there. Until it is, this repository cannot `npm install`, and the
-authoritative copy of this code is whatever CCN-Registry's history last pushed here.
 
 ## Environment
 
@@ -59,7 +53,13 @@ authoritative copy of this code is whatever CCN-Registry's history last pushed h
 | `NEXT_PUBLIC_DISPLAY_NAME` | marketing name, only once counsel confirms a DBA is acceptable |
 | `NEXT_PUBLIC_PHONE` or `NEXT_PUBLIC_STREET` | required in every advertisement by § 1812.533(b)(2) |
 | `NEXT_PUBLIC_SITE_URL` | canonical origin |
-| `GITHUB_PACKAGES_TOKEN` | read-only PAT, to install `@h-hallows/core` |
+| `RESEND_API_KEY` | mail provider key. **Without it nobody can sign in**: in production there is no console driver and no link is printed. |
+| `MAIL_FROM` | a sender on a domain Resend has verified |
+| `MAIL_REPLY_TO` | optional, where replies go |
+| `OPERATOR_NOTIFY_EMAIL` | where "something arrived" goes. The message never carries a name, an address or any clinical detail — § 7 keeps that in the console. |
+
+`@h-hallows/core` is a public repository installed from a git tag, so `npm install`
+needs no token and no registry configuration, here or on Vercel.
 
 Vercel: Root Directory `/`. The portals are paths — `/portal`, `/pro`, `/partner` — not
 subdomains, so there is one certificate and one cookie scope.
