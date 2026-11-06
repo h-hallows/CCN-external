@@ -12,6 +12,7 @@
  * These run through the real action, which runs through `asPortalUser`, which drops to
  * the non-owning `ccn_app` role. Without that the policies would be present and inert.
  */
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { ROOT, code, reachableFrom, walk } from './importGraph';
@@ -144,6 +145,38 @@ describe('a request is a request and nothing more', () => {
     expect(again.alreadyAsked).toBe(true);
     expect(await rowCount('shortlist_requests', 'provider_id = $1', [eligibleId]))
       .toBe(before);
+  });
+
+  it('treats an index collision as "you already asked", not as a failure', () => {
+    /*
+     * A SOURCE ASSERTION, and it says so rather than pretending otherwise.
+     *
+     * The read-then-insert in `requestProvider` is a courtesy: under READ COMMITTED a
+     * request written by a concurrent transaction is invisible to the read and arrives
+     * anyway, so what actually holds one open ask per provider is
+     * `shortlist_requests_one_open_per_provider` (core 0019, exercised against the
+     * database in that repository's suite).
+     *
+     * This branch cannot be driven from here without two real connections racing — the
+     * courtesy read sees every pending row for the pair, so any fixture that creates
+     * one makes the read, not the index, do the work. Writing a test that appears to
+     * drive it would assert the wrong half. What is checkable here is the handling: a
+     * collision reads the winning row back and reports it as an existing ask, because
+     * "we could not record that" would be false — it was recorded, by the other click.
+     */
+    const source = readFileSync(path.join(ROOT, 'lib/request.ts'), 'utf8');
+    const catchAt = source.indexOf('} catch (err) {');
+    expect(catchAt).toBeGreaterThan(-1);
+    const handler = source.slice(catchAt, source.indexOf('\n  });', catchAt));
+
+    // Anything that is not this collision is re-thrown, not reported as a duplicate.
+    expect(handler)
+      .toContain('if (!/shortlist_requests_one_open_per_provider/.test(message)) throw err;');
+    // The id handed back is the row that won, read from the database.
+    expect(handler).toContain("status = 'pending'");
+    expect(handler).toContain('fresh: false');
+    // And it never invents one.
+    expect(handler).toContain('if (!theirs) throw err;');
   });
 
   it('reports the open request back to the household that made it', async () => {

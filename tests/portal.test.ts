@@ -7,7 +7,10 @@
  * connection owns every table — and each assertion below would pass for the wrong
  * reason.
  */
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { ROOT, rel, walk } from './importGraph';
 import type { DbHandle } from '@h-hallows/core/db';
 import { seededDb } from '@h-hallows/core/testing';
 import { benchProvider, currentBenches } from '@/lib/portal';
@@ -181,5 +184,62 @@ describe('what a household may be shown about a provider', () => {
     for (const banned of ['rating', 'review', 'score', 'rank', 'star', 'badge']) {
       expect(keys, `the profile exposes "${banned}"`).not.toContain(banned);
     }
+  });
+});
+
+/**
+ * Everything a signed-in portal screen reads goes through `asPortalUser`.
+ *
+ * That function does two things nothing else does: it drops to the non-owning `ccn_app`
+ * role, and it sets `request.jwt.claims` from the session. Without the first, Postgres
+ * exempts the owner and the § 4 matrix is present and inert; without the second, the
+ * policies key off nothing. A query that reaches `getDb()` directly gets neither, and
+ * nothing about it looks wrong — it returns rows, and in the owner case it returns rows
+ * it should not.
+ *
+ * So the rule is: `getDb()` is for infrastructure, and the list below is all of it, with
+ * the reason each one is on it. A new file calling it fails here rather than quietly
+ * reading past the policies.
+ */
+describe('the portal reads through its own role, not the owner\'s', () => {
+  const ALLOWED: Record<string, string> = {
+    'lib/portalDb.ts': 'it IS the wrapper, and the one documented elevation beside it',
+    'lib/session.ts': 'identity lookup across tables no single role can see; returns no data',
+    'lib/availability.ts': 'the health probe, which asks whether a database answers at all',
+    'lib/rateLimit.ts': 'infrastructure counter keyed on an address, holding nobody’s record',
+    'lib/rates.ts': 'the published fee schedule — public by § 1812.527, no claim to key on',
+    'lib/intake.ts': 'the three public intake writes, made by people with no session',
+    'lib/notify.ts': 'writes operator notifications; reads nothing about anyone',
+    'app/login/page.tsx': 'issues an invite for an address that has no session yet',
+    'app/invite/[token]/route.ts': 'accepts one, which is how a session begins',
+  };
+
+  function filesCallingGetDb(): string[] {
+    const found: string[] = [];
+    for (const file of walk(path.join(ROOT, 'lib')).concat(walk(path.join(ROOT, 'app')))) {
+      if (!/\.tsx?$/.test(file)) continue;
+      if (readFileSync(file, 'utf8').includes('await getDb()')) found.push(rel(file));
+    }
+    return found.sort();
+  }
+
+  it('finds the callers', () => {
+    expect(filesCallingGetDb().length).toBeGreaterThan(5);
+  });
+
+  it('nothing outside the infrastructure list reaches the database directly', () => {
+    const unexpected = filesCallingGetDb().filter((f) => !(f in ALLOWED));
+    expect(
+      unexpected,
+      `${unexpected.join(', ')} calls getDb() directly. Portal data goes through `
+      + 'asPortalUser, which drops to ccn_app and sets the claims. If this file really '
+      + 'is infrastructure, add it to ALLOWED with the reason.',
+    ).toEqual([]);
+  });
+
+  it('the list has no dead entries, so it cannot quietly grow stale', () => {
+    const actual = new Set(filesCallingGetDb());
+    const dead = Object.keys(ALLOWED).filter((f) => !actual.has(f));
+    expect(dead, `${dead.join(', ')} no longer calls getDb()`).toEqual([]);
   });
 });

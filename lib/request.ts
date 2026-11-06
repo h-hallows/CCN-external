@@ -128,16 +128,41 @@ export async function requestProvider(
     const already = open[0];
     if (already) return { id: already.id, fresh: false };
 
-    // Four columns. Not `status`, not `referral_id` — see the header.
-    const rows = await tx.query<{ id: string }>(
-      `INSERT INTO shortlist_requests (shortlist_id, provider_id, requested_by, note)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id`,
-      [provider.shortlistId, input.providerId, session.userId, note],
-    );
-    const row = rows[0];
-    if (!row) throw new Error('the request was not recorded');
-    return { id: row.id, fresh: true };
+    /*
+     * Four columns. Not `status`, not `referral_id` — see the header.
+     *
+     * The read above is a courtesy, not the control. It and this insert are one
+     * transaction, but READ COMMITTED means a request inserted by a concurrent
+     * transaction is invisible to the read and arrives anyway — so what actually holds
+     * one open ask per provider is `shortlist_requests_one_open_per_provider` (core
+     * 0019), and a collision here means the other click won. Telling the family they
+     * have already asked is the truth, not a fallback.
+     */
+    try {
+      const rows = await tx.query<{ id: string }>(
+        `INSERT INTO shortlist_requests (shortlist_id, provider_id, requested_by, note)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id`,
+        [provider.shortlistId, input.providerId, session.userId, note],
+      );
+      const row = rows[0];
+      if (!row) throw new Error('the request was not recorded');
+      return { id: row.id, fresh: true };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (!/shortlist_requests_one_open_per_provider/.test(message)) throw err;
+
+      // Their other click won. Read back the row it wrote, so the answer carries the
+      // real request rather than an apology.
+      const [theirs] = await tx.query<{ id: string }>(
+        `SELECT id FROM shortlist_requests
+          WHERE shortlist_id = $1 AND provider_id = $2 AND status = 'pending'
+          LIMIT 1`,
+        [provider.shortlistId, input.providerId],
+      );
+      if (!theirs) throw err;
+      return { id: theirs.id, fresh: false };
+    }
   });
 
   if (written.fresh) {
