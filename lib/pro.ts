@@ -264,10 +264,18 @@ export interface CredentialStanding {
   /** Set when something has been handed in and not yet turned into a credential. */
   submittedAt: string | null;
   submissionState: string | null;
+  /**
+   * We last checked this against the issuing body more than REVERIFY_AFTER_DAYS ago.
+   * Does not block referral — core reports it rather than acting on it, deliberately
+   * — but the provider is the one person who can do something about it.
+   */
+  staleVerification: boolean;
 }
 
 export interface ProviderStanding {
   eligible: boolean;
+  /** Required credentials overdue a re-check. Informational, never blocking. */
+  stale: CredentialType[];
   /** The types still blocking referral. The provider may see their own, unlike a household. */
   blocking: CredentialType[];
   credentials: CredentialStanding[];
@@ -305,7 +313,11 @@ export async function credentialStanding(
     const required = requiredFor({ type: self.type, transports: self.transports });
     const standing = eligibility(
       { type: self.type, transports: self.transports, status: self.status as never },
-      creds.map((c) => ({ type: c.type as CredentialType, expiresOn: c.expires_on })),
+      creds.map((c) => ({
+        type: c.type as CredentialType,
+        expiresOn: c.expires_on,
+        verifiedOn: c.verified_on,
+      })),
       now,
     );
 
@@ -318,6 +330,7 @@ export async function credentialStanding(
     return {
       eligible: standing.eligible,
       blocking: standing.blocking,
+      stale: standing.stale,
       credentials: types.map((type) => {
         const held = creds.find((c) => c.type === type);
         const handedIn = submissions.find((s) => s.type === type && s.state === 'submitted');
@@ -330,6 +343,7 @@ export async function credentialStanding(
           verifiedOn: held?.verified_on ?? null,
           submittedAt: handedIn?.submitted_at.slice(0, 10) ?? null,
           submissionState: handedIn?.state ?? null,
+          staleVerification: standing.stale.includes(type),
         };
       }),
     };

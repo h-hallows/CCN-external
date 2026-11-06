@@ -241,6 +241,21 @@ describe('a provider hands documents in; it does not verify itself', () => {
     expect(subs.state).toBe('submitted');
   });
 
+  it('tells the provider when OUR re-check is overdue, without blocking them', async () => {
+    // core reports stale verification rather than acting on it: I12 blocks on
+    // missing or expired, and a stale re-check is neither. The provider is the one
+    // person who can chase it, so they are told.
+    await db.query(
+      `UPDATE credentials SET verified_on = current_date - 400
+        WHERE provider_id = $1 AND type = 'lvn_license'`, [myProviderId]);
+    const standing = await credentialStanding(me);
+    expect(standing!.stale).toContain('lvn_license');
+    const row = standing!.credentials.find((c) => c.type === 'lvn_license');
+    expect(row!.staleVerification).toBe(true);
+    // Still not a reason to exclude them.
+    expect(standing!.blocking).not.toContain('lvn_license');
+  });
+
   it('handing something in does not make the provider eligible', async () => {
     const standing = await credentialStanding(me);
     // The Live Scan was handed in above and is still blocking, because nothing has

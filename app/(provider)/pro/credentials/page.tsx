@@ -60,6 +60,14 @@ export default async function ProCredentials() {
                     <th scope="row" style={{ fontWeight: 400 }}>{c.label}</th>
                     <td>
                       {STATE_WORDS[c.state] ?? c.state}
+                      {c.staleVerification ? (
+                        /* Not a problem for them — it is our re-check that is
+                           overdue, and saying so is more honest than letting it
+                           sit in a queue they cannot see. */
+                        <span style={{ color: 'var(--ink-3)' }}>
+                          {' '}&middot; due a re-check by us
+                        </span>
+                      ) : null}
                       {c.submittedAt ? (
                         <span style={{ color: 'var(--ink-3)' }}>
                           {' '}&middot; you sent something on{' '}
