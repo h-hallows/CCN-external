@@ -208,7 +208,8 @@ describe('the portal reads through its own role, not the owner\'s', () => {
     'lib/availability.ts': 'the health probe, which asks whether a database answers at all',
     'lib/rateLimit.ts': 'infrastructure counter keyed on an address, holding nobody’s record',
     'lib/rates.ts': 'the published fee schedule — public by § 1812.527, no claim to key on',
-    'lib/intake.ts': 'the three public intake writes, made by people with no session',
+    'lib/intake.ts': 'the public intake writes, made by people with no session \u2014 a '
+      + 'signed-in partner\u2019s referral goes through asPortalUser in the same file',
     'lib/notify.ts': 'writes operator notifications; reads nothing about anyone',
     'app/login/page.tsx': 'issues an invite for an address that has no session yet',
     'app/invite/[token]/route.ts': 'accepts one, which is how a session begins',

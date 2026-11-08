@@ -11,6 +11,7 @@
  * assertions below look at the database and at every file on this surface, not at
  * whether a form happens to render a field today.
  */
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { DbHandle } from '@h-hallows/core/db';
@@ -252,6 +253,113 @@ describe('there is nowhere to put a referral payment', () => {
     for (const [where, src] of [['/refer', refer], ['/partner', portal]] as const) {
       expect(src, `${where} does not mention that there is no payment`)
         .toMatch(/no payment|not pay for referrals|no commission/i);
+    }
+  });
+});
+
+/**
+ * A partner's own referrals reach their own portal.
+ *
+ * `partner_referrals()` is scoped by `inquiries.partner_id`, and
+ * `recordPartnerReferral` never set it — so every referral a partner sent was invisible
+ * to them, on a page that says "Nothing yet. When you send us a patient it will appear
+ * here with where it has got to." Reproduced against the running application before it
+ * was fixed: the row landed with partner_id NULL and the partner's email sitting in a
+ * JSON blob nothing reads.
+ */
+describe('attributing a referral to the partner who sent it', () => {
+  const REFERRAL = {
+    partnerName: 'Dolores Hwang',
+    partnerOrg: 'Huntington Hospital',
+    partnerRole: 'discharge_planner' as const,
+    partnerPhone: '(626) 555-0100',
+    partnerEmail: 'planner@example.com',
+    patientInitials: 'R.K.',
+    contactName: 'Ruth Keating',
+    contactPhone: '(626) 555-7788',
+    careType: 'post_surgical' as const,
+    area: 'pasadena',
+    urgency: 'discharge' as const,
+    consentNote: true as const,
+    note: 'Discharging Friday.',
+  };
+
+  it('a signed-in partner sees what they sent', async () => {
+    const before = await partnerReferrals(mine);
+
+    const id = await recordPartnerReferral(REFERRAL, mine);
+
+    const [row] = await db.query<{ partner_id: string | null }>(
+      `SELECT partner_id FROM inquiries WHERE id = $1`, [id]);
+    expect(row!.partner_id).toBe(mine.partnerId);
+
+    const after = await partnerReferrals(mine);
+    expect(after.length).toBe(before.length + 1);
+    expect(after.some((r) => r.inquiryId === id)).toBe(true);
+  });
+
+  it('without a session it stays unattributed, rather than guessing from the email', async () => {
+    /*
+     * The email in the form is typed by whoever is filling it in. Matching on it would
+     * let anyone claim another partner's referrals — and `partner_id` is exactly what
+     * decides who may read an outcome later. An operator attaches these by hand.
+     */
+    const id = await recordPartnerReferral(REFERRAL);
+
+    const [row] = await db.query<{ partner_id: string | null; email: string }>(
+      `SELECT partner_id, referrer->>'partnerEmail' AS email FROM inquiries WHERE id = $1`,
+      [id]);
+    expect(row!.email).toBe('planner@example.com');
+    expect(row!.partner_id).toBeNull();
+
+    expect((await partnerReferrals(mine)).some((r) => r.inquiryId === id))
+      .toBe(false);
+  });
+
+  it('a partner cannot attribute a referral to a different partner', async () => {
+    // The policy from 0014 permits `partner_id = current_partner()` and nothing else,
+    // so a forged session claim is refused by the database rather than trusted here.
+    await expect(recordPartnerReferral(
+      REFERRAL,
+      { ...mine, partnerId: otherPartnerId },
+    )).rejects.toThrow();
+  });
+});
+
+/**
+ * /refer reads the request, so it must not be statically rendered.
+ *
+ * This failure is invisible where you would look for it: in development every page is
+ * rendered per request, so the prefill works perfectly, and in production the page is
+ * baked at build time with no cookie in it and a signed-in partner sees a blank form
+ * forever. Next says so by throwing a dynamic-usage error during the build — which the
+ * page's own try/catch swallowed into a log line on the first attempt at this.
+ */
+describe('the refer page is rendered per request', () => {
+  const page = readFileSync(path.join(ROOT, 'app/(marketing)/refer/page.tsx'), 'utf8');
+
+  it('declares itself dynamic', () => {
+    expect(page).toContain("export const dynamic = 'force-dynamic'");
+  });
+
+  it('reads the session, which is what makes it dynamic', () => {
+    expect(page).toContain('getPortalSession()');
+    expect(page).toContain('partnerIdentity(');
+  });
+
+  it('re-throws the framework\'s own control flow before handling an error', () => {
+    /*
+     * `unstable_rethrow` first, in every catch that wraps a Next API. redirect(),
+     * notFound() and dynamic-usage are all signalled by throwing, and a catch that
+     * keeps them turns a framework instruction into a logged warning.
+     */
+    for (const file of ['app/(marketing)/refer/page.tsx', 'app/api/refer/route.ts']) {
+      const source = readFileSync(path.join(ROOT, file), 'utf8');
+      const catchAt = source.indexOf('} catch (err) {');
+      expect(catchAt, `${file} has no catch to check`).toBeGreaterThan(-1);
+      const handler = source.slice(catchAt, catchAt + 400);
+      expect(handler, `${file} swallows Next's control flow`)
+        .toContain('unstable_rethrow(err)');
     }
   });
 });

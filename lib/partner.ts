@@ -82,3 +82,36 @@ export const OUTCOME_NOTE =
   'Where a family has told us we may share how it went, you will see that here. '
   + 'Where they have not, you will not — that is their call rather than ours, and it '
   + 'can be withdrawn at any time.';
+
+export interface PartnerIdentity {
+  name: string;
+  org: string | null;
+  phone: string | null;
+  email: string | null;
+}
+
+/**
+ * Who the signed-in partner is, as the registry has them recorded.
+ *
+ * Used to fill in the "who you are" block on /refer, and taken from
+ * `referral_partners` rather than from whatever they typed last time — the operator's
+ * copy is the one the acknowledgement goes to, so a form that disagrees with it is a
+ * form that quietly creates a second version of the same person.
+ *
+ * `role` is deliberately not returned. The column is free text the operator wrote
+ * ("Discharge planner", "Attorney"), while the form's field is a closed enum, and
+ * guessing which option a sentence maps to would mean choosing on their behalf.
+ */
+export async function partnerIdentity(
+  session: PortalSession,
+): Promise<PartnerIdentity | null> {
+  if (!session.partnerId) return null;
+  return asPortalUser(session, async (tx) => {
+    const [row] = await tx.query<{
+      name: string; org: string | null; phone: string | null; email: string | null;
+    }>(
+      `SELECT name, org, phone, email FROM partner_self()`,
+    );
+    return row ?? null;
+  });
+}

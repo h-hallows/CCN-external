@@ -82,9 +82,26 @@ const twoUp: React.CSSProperties = {
   gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))',
 };
 
+export interface KnownPartner {
+  name: string;
+  org: string | null;
+  phone: string | null;
+  email: string | null;
+}
+
 export function PartnerReferralForm({
-  acknowledgedBy, directLine,
-}: { acknowledgedBy: string | null; directLine: string | null }) {
+  acknowledgedBy, directLine, you,
+}: {
+  acknowledgedBy: string | null;
+  directLine: string | null;
+  /**
+   * Filled in from the registry's own record when a partner is signed in — not from
+   * the browser, and not from what they typed last time. The acknowledgement goes to
+   * the operator's copy, so a form that disagrees with it is a planner who never
+   * hears back. Still editable: a locked field is worse than a wrong one.
+   */
+  you?: KnownPartner | null;
+}) {
   const [result, setResult] = useState<State>({ state: 'idle' });
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -160,12 +177,21 @@ export function PartnerReferralForm({
     <form onSubmit={submit} style={{ maxWidth: 'var(--measure)' }}>
       <fieldset style={{ border: 0, padding: 0, margin: '0 0 2rem' }}>
         <legend style={{ fontSize: 'var(--step-0)' }}>Who you are</legend>
+        {you ? (
+          <p style={{ fontSize: 'var(--step--1)', color: 'var(--ink-3)', margin: '.4rem 0 0' }}>
+            Filled in from what we have for you, and you can change any of it. Because
+            you are signed in, this referral will show up on your own page with where
+            it has got to.
+          </p>
+        ) : null}
         <div style={twoUp}>
           <Field id="partnerName" label="Your name">
-            <input id="partnerName" name="partnerName" required maxLength={120} style={fieldStyle} />
+            <input id="partnerName" name="partnerName" required maxLength={120}
+              defaultValue={you?.name ?? ''} style={fieldStyle} />
           </Field>
           <Field id="partnerOrg" label="Where you work">
-            <input id="partnerOrg" name="partnerOrg" maxLength={160} style={fieldStyle} />
+            <input id="partnerOrg" name="partnerOrg" maxLength={160}
+              defaultValue={you?.org ?? ''} style={fieldStyle} />
           </Field>
           <Field id="partnerRole" label="Your role">
             <select id="partnerRole" name="partnerRole" required defaultValue="" style={fieldStyle}>
@@ -174,10 +200,12 @@ export function PartnerReferralForm({
             </select>
           </Field>
           <Field id="partnerPhone" label="Your phone">
-            <input id="partnerPhone" name="partnerPhone" type="tel" required maxLength={32} style={fieldStyle} />
+            <input id="partnerPhone" name="partnerPhone" type="tel" required maxLength={32}
+              defaultValue={you?.phone ?? ''} style={fieldStyle} />
           </Field>
           <Field id="partnerEmail" label="Your email">
-            <input id="partnerEmail" name="partnerEmail" type="email" required maxLength={200} style={fieldStyle} />
+            <input id="partnerEmail" name="partnerEmail" type="email" required maxLength={200}
+              defaultValue={you?.email ?? ''} style={fieldStyle} />
           </Field>
         </div>
       </fieldset>
