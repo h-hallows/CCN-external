@@ -6,7 +6,9 @@
  * question is always which variable is missing.
  */
 import { databaseAvailable } from '@/lib/availability';
-import { brandBlockers, contactResolved, legalNameResolved } from '@/lib/brand';
+import {
+  brandBlockers, contactResolved, indexable, legalNameResolved, nameIsFiled,
+} from '@/lib/brand';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,6 +22,12 @@ export async function GET(): Promise<Response> {
     brand: {
       legalName: legalNameResolved(),
       contact: contactResolved(),
+      /**
+       * Whether anyone has said the configured name is the one on file. A stand-in
+       * renders the whole site and is never indexed; see lib/brand.ts.
+       */
+      nameIsFiled: nameIsFiled(),
+      indexable: indexable(),
       blockers,
     },
     marketingPagesServeWithoutADatabase: true,

@@ -1,17 +1,22 @@
 import Link from 'next/link';
 import { StatutoryFooter } from '@/components/StatutoryFooter';
 import { Wrap } from '@/components/layout';
-import { brandBlockers, DISPLAY_NAME } from '@/lib/brand';
+import { brandBlockers, DISPLAY_NAME, indexable } from '@/lib/brand';
 import { NotPublished } from '@/components/NotPublished';
 import type { Metadata } from 'next';
 
 /*
- * While the site is withheld there is nothing worth indexing, and an indexed holding
- * page outranks the real one for a while once it is published.
+ * Nothing is indexed until a name somebody filed is configured.
+ *
+ * Two separate reasons, and the second is the one that is easy to miss. While the site
+ * is withheld there is nothing worth indexing, and an indexed holding page outranks the
+ * real one for a while once it is published. And once a stand-in name is configured the
+ * pages render in full — which is the point — but a crawler cannot tell a stand-in from
+ * the filed name, and § 1812.533(b)(2) wants the correct one in every advertisement.
  */
-export const metadata: Metadata = brandBlockers().length > 0
-  ? { robots: { index: false, follow: false } }
-  : {};
+export const metadata: Metadata = indexable()
+  ? {}
+  : { robots: { index: false, follow: false } };
 
 const NAV = [
   { href: '/how-it-works', label: 'How it works' },

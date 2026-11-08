@@ -185,24 +185,90 @@ describe('§ 11 — structured data claims nothing clinical', () => {
 });
 
 describe('W4 — robots, sitemap and the advertising record', () => {
-  it('allows the marketing pages and disallows every portal', async () => {
-    const { default: robots } = await import('@/app/robots');
-    const rules = robots().rules;
-    const rule = Array.isArray(rules) ? rules[0]! : rules;
-    expect(rule.allow).toBe('/');
-    for (const path of ['/portal', '/pro', '/partner', '/invite', '/api']) {
-      expect(rule.disallow, `${path} is crawlable`).toContain(path);
+  /**
+   * Two states, and the default is the careful one.
+   *
+   * Setting `NEXT_PUBLIC_LEGAL_NAME` to a stand-in makes the whole site render, which
+   * is what you want while you are looking at it. It used to also make the site
+   * indexable, because one variable was answering two questions — so a site put up to
+   * be looked at was a site Google would file under a name nobody had filed, and
+   * § 1812.533(b)(2) wants the correct name in every advertisement.
+   *
+   * `NEXT_PUBLIC_NAME_IS_FILED=1` is the second answer, and nothing infers it.
+   */
+  const withFiledName = async <T>(fn: () => Promise<T> | T): Promise<T> => {
+    const before = process.env.NEXT_PUBLIC_NAME_IS_FILED;
+    process.env.NEXT_PUBLIC_NAME_IS_FILED = '1';
+    try {
+      return await fn();
+    } finally {
+      if (before === undefined) delete process.env.NEXT_PUBLIC_NAME_IS_FILED;
+      else process.env.NEXT_PUBLIC_NAME_IS_FILED = before;
     }
+  };
+
+  it('allows the marketing pages and disallows every portal, once the name is filed', async () => {
+    const { default: robots } = await import('@/app/robots');
+    await withFiledName(() => {
+      const rules = robots().rules;
+      const rule = Array.isArray(rules) ? rules[0]! : rules;
+      expect(rule.allow).toBe('/');
+      for (const path of ['/portal', '/pro', '/partner', '/invite', '/api']) {
+        expect(rule.disallow, `${path} is crawlable`).toContain(path);
+      }
+    });
   });
 
-  it('lists only the marketing routes in the sitemap', async () => {
+  it('refuses the whole site to crawlers while the name is a stand-in', async () => {
+    const { default: robots } = await import('@/app/robots');
+    const { nameIsFiled } = await import('@/lib/brand');
+    expect(nameIsFiled()).toBe(false);
+
+    const rules = robots().rules;
+    const rule = Array.isArray(rules) ? rules[0]! : rules;
+    expect(rule.disallow).toBe('/');
+    expect(rule.allow).toBeUndefined();
+    // And no sitemap offered to argue otherwise.
+    expect(robots().sitemap).toBeUndefined();
+  });
+
+  it('lists only the marketing routes in the sitemap, once the name is filed', async () => {
     const { default: sitemap } = await import('@/app/sitemap');
-    const urls = sitemap().map((e) => new URL(e.url).pathname);
-    expect(urls).toContain('/');
-    expect(urls).toContain('/pricing');
-    for (const portal of ['/portal', '/pro', '/partner', '/invite']) {
-      expect(urls.some((u) => u.startsWith(portal)), `${portal} is in the sitemap`).toBe(false);
-    }
+    await withFiledName(() => {
+      const urls = sitemap().map((e) => new URL(e.url).pathname);
+      expect(urls).toContain('/');
+      expect(urls).toContain('/pricing');
+      for (const portal of ['/portal', '/pro', '/partner', '/invite']) {
+        expect(urls.some((u) => u.startsWith(portal)), `${portal} is in the sitemap`).toBe(false);
+      }
+    });
+  });
+
+  it('offers an empty sitemap while the name is a stand-in', async () => {
+    const { default: sitemap } = await import('@/app/sitemap');
+    expect(sitemap()).toEqual([]);
+  });
+
+  it('a stand-in name still renders every page — it is only indexing that waits', async () => {
+    const { brandBlockers, indexable, usingPlaceholderName } = await import('@/lib/brand');
+    // Nothing is withheld: there is a name and a contact, which is what the layout asks.
+    expect(brandBlockers()).toEqual([]);
+    expect(indexable()).toBe(false);
+    expect(usingPlaceholderName()).toBe(true);
+  });
+
+  it('keeps the description and withholds only the indexing', async () => {
+    const { publicMetadata } = await import('@/lib/brand');
+    const meta = publicMetadata({ title: 'Rates', description: 'What we charge.' });
+    // Someone opening the page sees the real thing; a crawler is told not to keep it.
+    expect(meta.title).toBe('Rates');
+    expect(meta.description).toBe('What we charge.');
+    expect((meta as { robots?: { index: boolean } }).robots).toEqual(
+      { index: false, follow: false });
+
+    const live = await withFiledName(() =>
+      publicMetadata({ title: 'Rates', description: 'What we charge.' }));
+    expect((live as { robots?: unknown }).robots).toBeUndefined();
   });
 
   it('emits absolute canonical URLs, not ones resolved against a preview host', async () => {

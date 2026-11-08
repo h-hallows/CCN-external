@@ -16,7 +16,7 @@
  * shipping rather than to stop work. VERCEL_ENV and not NODE_ENV, since NODE_ENV is
  * 'production' for every build including the one you run to check a bundle size.
  */
-import { brandBlockers, contactLine } from '@/lib/brand';
+import { brandBlockers, contactLine, usingPlaceholderName } from '@/lib/brand';
 import { isDeliverable, REFERRAL_AGENCY_LINE } from '@/content/statutory';
 
 export function StatutoryFooter() {
@@ -48,6 +48,16 @@ export function StatutoryFooter() {
     <footer data-statutory-footer="complete" className="statutory">
       <p>{REFERRAL_AGENCY_LINE.text}</p>
       <p>{contactLine()}</p>
+      {/*
+        * Said plainly while a stand-in name is in use. The page is complete and search
+        * engines are told to stay away, but anyone reading it — including whoever set
+        * the variable months ago — should be able to tell without checking a dashboard.
+        */}
+      {usingPlaceholderName() ? (
+        <p data-placeholder-name="true" style={{ color: 'var(--ink-3)' }}>
+          Pre-launch. The name above is a stand-in and this site is not indexed.
+        </p>
+      ) : null}
     </footer>
   );
 }
