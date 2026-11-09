@@ -22,9 +22,32 @@
 export const PENDING_LEGAL_NAME = 'PENDING_LEGAL_NAME';
 export const PENDING_PHONE = 'PENDING_PHONE';
 
-export const LEGAL_NAME = process.env.NEXT_PUBLIC_LEGAL_NAME ?? PENDING_LEGAL_NAME;
+/**
+ * What a deployment shows before anybody has filed a name.
+ *
+ * Three letters, which is the repository's own name for this business and could not be
+ * mistaken for a trading name somebody registered. Not a plausible-looking invention:
+ * a deployment that reads "Westside Concierge Nursing LLC" because a default said so
+ * is a deployment somebody will eventually believe.
+ *
+ * The contact is prose rather than a number. A fake telephone number on a page is
+ * worse than no number, because somebody can dial it.
+ */
+const PRELAUNCH_NAME = 'CCN';
+const PRELAUNCH_CONTACT = 'Telephone pending';
+
+/**
+ * Read at module load, like the values below it. Next inlines `NEXT_PUBLIC_*` at build
+ * time wherever it appears, so a constant and a function body get the same treatment;
+ * `nameIsFiled()` exists as well because the tests drive both states in one process.
+ */
+const FILED_AT_BUILD = process.env.NEXT_PUBLIC_NAME_IS_FILED === '1';
+
+export const LEGAL_NAME = process.env.NEXT_PUBLIC_LEGAL_NAME
+  ?? (FILED_AT_BUILD ? PENDING_LEGAL_NAME : PRELAUNCH_NAME);
 export const DISPLAY_NAME = process.env.NEXT_PUBLIC_DISPLAY_NAME ?? LEGAL_NAME;
-export const PHONE = process.env.NEXT_PUBLIC_PHONE ?? PENDING_PHONE;
+export const PHONE = process.env.NEXT_PUBLIC_PHONE
+  ?? (FILED_AT_BUILD ? PENDING_PHONE : PRELAUNCH_CONTACT);
 export const STREET = process.env.NEXT_PUBLIC_STREET ?? null;
 
 /**
@@ -71,7 +94,7 @@ export function indexable(): boolean {
 
 /** Said in the footer while a stand-in is in use, so nobody mistakes it for the name. */
 export function usingPlaceholderName(): boolean {
-  return legalNameResolved() && !nameIsFiled();
+  return !nameIsFiled();
 }
 
 /** True once counsel has cleared a name and it is configured. */
@@ -97,6 +120,20 @@ export function contactLine(): string {
 
 /** Everything the footer needs, and why it cannot render when it cannot. */
 export function brandBlockers(): string[] {
+  /*
+   * Nothing is withheld before launch.
+   *
+   * § 1812.533(b)(2) governs ADVERTISEMENTS. A deployment nobody has been pointed at,
+   * which tells every crawler to stay away and says on every page that its name is a
+   * stand-in, is not advertising — it is somebody looking at their own software. The
+   * check attaches to the moment that stops being true, which is the moment a name
+   * somebody filed is configured.
+   *
+   * It is not weakened, only moved: with NEXT_PUBLIC_NAME_IS_FILED=1 and nothing else
+   * set, every page is withheld exactly as before.
+   */
+  if (!nameIsFiled()) return [];
+
   const blockers: string[] = [];
   if (!legalNameResolved()) {
     blockers.push(

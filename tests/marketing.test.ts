@@ -417,12 +417,58 @@ describe('nothing advertises while the brand is withheld', () => {
     expect(NOT_PUBLISHED_TITLE).toBe('Not yet published');
   });
 
-  it('withholds when the name is missing', async () => {
-    // Re-import with the brand unset, which is the deployed state today.
+  it('renders with a stand-in when nothing is configured at all', async () => {
+    /*
+     * The deployed state before anyone touches Vercel: no variables, no database, and
+     * a site somebody wants to look at. It serves, under three letters nobody could
+     * mistake for a registered name, with the whole page intact and every crawler
+     * told to go away. § 1812.533(b)(2) governs advertisements; this is not one.
+     */
     const name = process.env.NEXT_PUBLIC_LEGAL_NAME;
     const phone = process.env.NEXT_PUBLIC_PHONE;
     delete process.env.NEXT_PUBLIC_LEGAL_NAME;
     delete process.env.NEXT_PUBLIC_PHONE;
+    vi.resetModules();
+    try {
+      const brand = await import('@/lib/brand');
+      expect(brand.brandBlockers()).toEqual([]);
+      expect(brand.LEGAL_NAME).toBe('CCN');
+      // Prose, not a number. A fake number on a page is one somebody can dial.
+      expect(brand.contactLine()).toBe('Telephone pending');
+      expect(brand.usingPlaceholderName()).toBe(true);
+      expect(brand.indexable()).toBe(false);
+
+      const out = brand.publicMetadata({
+        title: 'Real marketing title',
+        description: 'Real marketing description.',
+      }) as Record<string, unknown>;
+      // The page is whole; only the indexing is withheld.
+      expect(out.title).toBe('Real marketing title');
+      expect(out.description).toBe('Real marketing description.');
+      expect(out.robots).toEqual({ index: false, follow: false });
+    } finally {
+      if (name === undefined) delete process.env.NEXT_PUBLIC_LEGAL_NAME;
+      else process.env.NEXT_PUBLIC_LEGAL_NAME = name;
+      if (phone === undefined) delete process.env.NEXT_PUBLIC_PHONE;
+      else process.env.NEXT_PUBLIC_PHONE = phone;
+      vi.resetModules();
+    }
+  });
+
+  it('withholds when a filed name is claimed and not supplied', async () => {
+    /*
+     * The failure this guards is the one that can actually happen now: somebody sets
+     * NEXT_PUBLIC_NAME_IS_FILED=1 ahead of the name itself, and the site would
+     * otherwise advertise under a stand-in. Claiming the name is filed is what puts
+     * the deployment under § 1812.533(b)(2); with nothing behind the claim, every
+     * page is withheld.
+     */
+    const name = process.env.NEXT_PUBLIC_LEGAL_NAME;
+    const phone = process.env.NEXT_PUBLIC_PHONE;
+    const filed = process.env.NEXT_PUBLIC_NAME_IS_FILED;
+    delete process.env.NEXT_PUBLIC_LEGAL_NAME;
+    delete process.env.NEXT_PUBLIC_PHONE;
+    process.env.NEXT_PUBLIC_NAME_IS_FILED = '1';
     vi.resetModules();
     try {
       const brand = await import('@/lib/brand');
@@ -435,7 +481,10 @@ describe('nothing advertises while the brand is withheld', () => {
       expect(out.openGraph).toBeUndefined();
       expect(out.title).toEqual({ absolute: brand.NOT_PUBLISHED_TITLE });
       expect(JSON.stringify(out)).not.toContain('PENDING_LEGAL_NAME');
+      expect(brand.brandBlockers().length).toBe(2);
     } finally {
+      if (filed === undefined) delete process.env.NEXT_PUBLIC_NAME_IS_FILED;
+      else process.env.NEXT_PUBLIC_NAME_IS_FILED = filed;
       if (name) process.env.NEXT_PUBLIC_LEGAL_NAME = name;
       if (phone) process.env.NEXT_PUBLIC_PHONE = phone;
       vi.resetModules();

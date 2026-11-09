@@ -49,7 +49,7 @@ npm run ci         # copy lint, brand lint, typecheck, tests
 | Variable | What it is |
 |---|---|
 | `DATABASE_URL` | pooled connection to the one Postgres |
-| `NEXT_PUBLIC_LEGAL_NAME` | the name shown everywhere. A stand-in renders the whole site; see the next row. |
+| `NEXT_PUBLIC_LEGAL_NAME` | the name shown everywhere. Unset, a deployment serves under `CCN` and is never indexed; see the next row. |
 | `NEXT_PUBLIC_NAME_IS_FILED` | `1` only once the name above is the registry's name **as filed**. Nothing infers it, and without it the site renders in full and is never indexed — § 1812.533(b)(2) wants the correct name in every advertisement, and an indexed page is advertised. |
 | `NEXT_PUBLIC_DISPLAY_NAME` | marketing name, only once counsel confirms a DBA is acceptable |
 | `NEXT_PUBLIC_PHONE` or `NEXT_PUBLIC_STREET` | required in every advertisement by § 1812.533(b)(2) |
