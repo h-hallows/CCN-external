@@ -4,6 +4,7 @@ import { PROVIDER_NOTICE, isDeliverable } from '@/content/statutory';
 import { getPortalSession } from '@/lib/session';
 import { providerSelf } from '@/lib/pro';
 import { feeSchedulesFor, hasFeeSchedule } from '@/lib/feeSchedule';
+import { filedDocuments, filedLabel } from '@/lib/documents';
 import { Prose, Section, Stack } from '@/components/layout';
 
 export const dynamic = 'force-dynamic';
@@ -12,11 +13,12 @@ export const dynamic = 'force-dynamic';
  * § 4.2 /pro/documents — the signed referral agreement, the § 1812.5095(d) notice, and
  * for nurses the fee schedule as provided before the interview.
  *
- * Two of those three are dates rather than files. `providers.agreement_signed_on` and
- * `written_notice_ack_on` record that a thing happened and when; nothing in this system
- * stores a document of any kind, and the architecture spec's § 9 schema additions do
- * not include one. The screen says so rather than showing an empty list that reads as
- * "you have no documents".
+ * `providers.agreement_signed_on` and `written_notice_ack_on` record that a thing
+ * happened and when. Since core migration 0015 a document can sit behind them, and
+ * anything the operator filed against this provider AND chose to share appears below —
+ * a countersigned agreement, a letter. Sharing is off by default, so an empty list
+ * means nothing has been shared rather than that nothing exists, and the screen says
+ * which.
  *
  * The § 1812.5095(d) text itself IS available, because it lives in content/statutory
  * and is the same text that was handed over. A provider who wants to re-read what they
@@ -28,8 +30,16 @@ export default async function ProDocuments() {
   const me = await providerSelf(session);
   if (!me) redirect('/login');
 
-  const schedules = hasFeeSchedule(me.type) ? await feeSchedulesFor(session) : [];
+  // Independent reads; they were serial.
+  const [schedules, shared] = await Promise.all([
+    hasFeeSchedule(me.type) ? feeSchedulesFor(session) : Promise.resolve([]),
+    filedDocuments(session),
+  ]);
   const beforeInterview = schedules.find((s) => s.deliveredBeforeInterview);
+
+  const size = (bytes: number) => (bytes < 1024 * 1024
+    ? `${Math.max(1, Math.round(bytes / 1024))} KB`
+    : `${(bytes / 1048576).toFixed(1)} MB`);
 
   return (
     <Stack gap="lg">
@@ -143,6 +153,47 @@ export default async function ProDocuments() {
             we build that part.
           </p>
         </Prose>
+      </Section>
+
+      {/*
+        * Files, as opposed to the dates and texts above. Everything here is something
+        * somebody chose to share — filing a document against a provider does not share
+        * it, so an empty list means nothing has been shared rather than that nothing
+        * exists. Each one downloads; nothing renders in the page, because a PDF opened
+        * inline runs in this origin where a live session lives.
+        */}
+      <Section title="Files we have shared with you" as="h2">
+        {shared.length === 0 ? (
+          <Prose>
+            <p style={{ color: 'var(--ink-2)' }}>
+              Nothing yet. When we send you something in writing — a countersigned
+              agreement, a letter — a copy appears here as well.
+            </p>
+          </Prose>
+        ) : (
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+            {shared.map((f) => (
+              <li
+                key={f.id}
+                style={{
+                  borderTop: '1px solid var(--line)',
+                  paddingBlock: '.9rem',
+                  maxWidth: 'var(--measure)',
+                }}
+              >
+                <a href={`/portal-file/${f.id}`} style={{ fontWeight: 500 }}>
+                  {f.filename}
+                </a>
+                <p style={{
+                  margin: '.2rem 0 0', fontSize: 'var(--step--1)', color: 'var(--ink-2)',
+                }}>
+                  {filedLabel(f.kind)} &middot; {f.filedOn} &middot; {size(f.byteSize)}
+                  {f.note ? <> &middot; {f.note}</> : null}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
       </Section>
     </Stack>
   );

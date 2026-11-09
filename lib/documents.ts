@@ -209,14 +209,14 @@ export interface FiledDocument {
   caseId: string | null;
 }
 
-/** What the household may read, in the household's words. */
+/** What the subject may read, in their words rather than the schema's. */
 const FILED_LABEL: Record<string, string> = {
   registry_agreement: 'Signed agreement',
   written_notice: 'Written notice',
   written_statement: 'The written statement we sent you',
   nurse_disclosure: 'Nurses’ registry disclosure',
   correspondence: 'Letter',
-  credential: 'Document',
+  credential: 'Credential document',
   other: 'Document',
 };
 
@@ -237,7 +237,14 @@ export function filedLabel(kind: string): string {
  * something a later edit can drop.
  */
 export async function filedDocuments(session: PortalSession): Promise<FiledDocument[]> {
-  if (!session.householdId) return [];
+  /*
+   * Serves a provider as readily as a household, because the WHERE below does not
+   * mention either. `documents_household_select` and `documents_provider_select` each
+   * decide what their own audience may see, and this query asks for "everything shared
+   * with me, unredacted" — so a provider's countersigned agreement arrives through the
+   * same four lines as a family's written statement.
+   */
+  if (!session.householdId && !session.providerId) return [];
   return asPortalUser(session, async (tx) => {
     const rows = await tx.query<{
       id: string; filename: string; kind: string; byte_size: number;

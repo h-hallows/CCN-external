@@ -17,6 +17,7 @@ import { createHash } from 'node:crypto';
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { DbHandle } from '@h-hallows/core/db';
 import { seededDb } from '@h-hallows/core/testing';
+import { filedDocuments } from '@/lib/documents';
 import {
   credentialStanding, providerSelf, saveAvailability, saveLimits, savePhoto,
   saveProviderProfile, saveRate, submitCredential,
@@ -445,5 +446,80 @@ describe('the fee schedule and its seven-day embargo', () => {
                now(), current_date + 30)`);
     const schedules = await feeSchedulesFor(me);
     expect(schedules.map((s) => s.version)).not.toContain(9003);
+  });
+});
+
+/**
+ * A document shared with a provider reaches the provider.
+ *
+ * The operator can tick "share it with them" on a provider's document, and until now
+ * there was nowhere for it to appear — the policy existed, the screen did not. Third
+ * instance of the same shape: a loop built at both ends that did not join in the
+ * middle.
+ */
+describe('files the operator shared with this provider', () => {
+  const pdf = (text: string) => Buffer.from(`%PDF-1.4 ${text}`);
+  const digest = (b: Buffer) => createHash('sha256').update(b).digest('hex');
+
+  async function fileAgainstProvider(
+    providerId: string, text: string, shared: boolean,
+  ): Promise<string> {
+    const bytes = pdf(text);
+    const [row] = await db.query<{ id: string }>(
+      `INSERT INTO documents (kind, provider_id, filename, content_type, byte_size,
+                              sha256_hex, bytes, uploaded_by, visible_to_subject)
+       VALUES ('registry_agreement', $1, $2, 'application/pdf', $3, $4, $5, 'operator', $6)
+       RETURNING id`,
+      [providerId, `${text}.pdf`, bytes.length, digest(bytes), bytes, shared]);
+    return row!.id;
+  }
+
+  it('shows what was shared and not what was merely filed', async () => {
+    const shared = await fileAgainstProvider(myProviderId, 'countersigned', true);
+    const kept = await fileAgainstProvider(myProviderId, 'our-own-note', false);
+
+    const seen = await filedDocuments(me);
+    expect(seen.map((d) => d.id)).toContain(shared);
+    expect(seen.map((d) => d.id)).not.toContain(kept);
+  });
+
+  it('another provider sees none of it', async () => {
+    const shared = await fileAgainstProvider(myProviderId, 'not-theirs', true);
+    // `provider_users` is unique on provider_id — one portal account per provider —
+    // so the stand-in has to be one nothing has claimed yet.
+    const [other] = await db.query<{ id: string }>(
+      `SELECT p.id FROM providers p
+        WHERE p.id <> $1 AND p.deleted_at IS NULL
+          AND NOT EXISTS (SELECT 1 FROM provider_users u WHERE u.provider_id = p.id)
+        ORDER BY p.id LIMIT 1`,
+      [myProviderId]);
+    expect(other, 'no unclaimed provider to use').toBeTruthy();
+    const [user] = await db.query<{ id: string }>(
+      `INSERT INTO users (email, display_name, role)
+       VALUES ('other-pro-docs@example.com', 'Other', 'provider') RETURNING id`);
+    await db.query(
+      `INSERT INTO provider_users (user_id, provider_id) VALUES ($1, $2)
+       ON CONFLICT (user_id) DO UPDATE SET provider_id = EXCLUDED.provider_id`,
+      [user!.id, other!.id]);
+
+    const theirSession = {
+      ...me, userId: user!.id, providerId: other!.id, email: 'other-pro-docs@example.com',
+    };
+    expect((await filedDocuments(theirSession)).map((d) => d.id)).not.toContain(shared);
+  });
+
+  it('a household document never reaches a provider', async () => {
+    const [household] = await db.query<{ id: string }>(
+      `SELECT id FROM households WHERE deleted_at IS NULL ORDER BY id LIMIT 1`);
+    const bytes = pdf('about a family');
+    const [row] = await db.query<{ id: string }>(
+      `INSERT INTO documents (kind, household_id, filename, content_type, byte_size,
+                              sha256_hex, bytes, uploaded_by, visible_to_subject)
+       VALUES ('correspondence', $1, 'family.pdf', 'application/pdf', $2, $3, $4,
+               'operator', true)
+       RETURNING id`,
+      [household!.id, bytes.length, digest(bytes), bytes]);
+
+    expect((await filedDocuments(me)).map((d) => d.id)).not.toContain(row!.id);
   });
 });
