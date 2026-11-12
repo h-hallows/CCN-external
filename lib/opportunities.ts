@@ -18,6 +18,7 @@
  * admits a provider's row only when it is type 'note', carries their own provider_id,
  * and sits on a case they were actually referred to.
  */
+import { AREAS, areaLabel } from '@h-hallows/core/domain';
 import type { Tx } from '@h-hallows/core/db';
 import { asPortalUser } from './portalDb';
 import type { PortalSession } from './session';
@@ -202,15 +203,15 @@ export const CARE_LABEL: Record<string, string> = {
   hospice_support: 'Hospice support',
 };
 
-export const AREA_LABEL: Record<string, string> = {
-  century_city: 'Century City',
-  beverly_hills: 'Beverly Hills',
-  westwood: 'Westwood',
-  brentwood: 'Brentwood',
-  bel_air: 'Bel Air',
-  holmby_hills: 'Holmby Hills',
-  santa_monica: 'Santa Monica',
-  pacific_palisades: 'Pacific Palisades',
-  malibu: 'Malibu',
-  other: 'Elsewhere in the area',
-};
+/**
+ * Kept as a map because every call site indexes it, and sourced from core so there is
+ * one list rather than two.
+ *
+ * There were two. The console turns an enquiry into a household and stores the area as
+ * `households.cr_area`, which the matcher compares to `providers.areas` by string
+ * equality — so a slug that reached that column matched nobody, ever, on a case that
+ * looked correct on every screen.
+ */
+export const AREA_LABEL: Record<string, string> = Object.fromEntries(
+  AREAS.map((slug) => [slug, areaLabel(slug)]),
+);
