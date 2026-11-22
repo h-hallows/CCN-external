@@ -40,11 +40,36 @@ export function silentlyDropped(): Response {
   return Response.json({ ok: true }, { status: 202 });
 }
 
+/**
+ * A refusal the caller can act on.
+ *
+ * `flatten()` splits a ZodError in two and this returned one half of it. Anything the
+ * schema refuses at the OBJECT level rather than against a named field lands in
+ * `formErrors`: an unrecognized key, which `.strict()` makes a rejection, or any future
+ * `.refine()` written without a `path`. Those were dropped on the floor, so the response
+ * was `{ ok: false, fieldErrors: {} }` — a 400 carrying no message and no field to hang
+ * one on. The client then had nothing to render but its own fallback, and `{}` is truthy,
+ * so it chose the wrong one and told the visitor to read notes that were not there.
+ *
+ * The object-level TEXT is deliberately not forwarded. "Unrecognized key(s) in object:
+ * 'patternNode'" is true, is this end's fault rather than the visitor's, and names an
+ * internal field to anybody who can reach a public form. So the caller gets one sentence
+ * they can act on, and the detail goes where a developer will see it.
+ */
 export function rejected(error: ZodError): Response {
-  return Response.json(
-    { ok: false, fieldErrors: error.flatten().fieldErrors },
-    { status: 400 },
-  );
+  const { fieldErrors, formErrors } = error.flatten();
+  const body: { ok: false; fieldErrors: typeof fieldErrors; message?: string } = {
+    ok: false, fieldErrors,
+  };
+
+  if (formErrors.length > 0) {
+    // Key names only — a ZodError's object-level text never quotes a submitted value.
+    console.warn('[intake] refused against the whole form:', formErrors.join('; '));
+    body.message = 'We could not accept that form, and it is our end at fault rather '
+      + 'than anything you typed. Please call us and we will take the details directly.';
+  }
+
+  return Response.json(body, { status: 400 });
 }
 
 export function limited(): Response {

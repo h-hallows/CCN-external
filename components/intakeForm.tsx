@@ -56,11 +56,21 @@ export async function postIntake(
       ok?: boolean; message?: string; reference?: string; fieldErrors?: FieldErrors;
     };
     if (!response.ok || !payload.ok) {
+      const fieldErrors = payload.fieldErrors ?? {};
+      /*
+       * Whether there is anything to point AT, not whether the key came back. This read
+       * `payload.fieldErrors ? ... : ...`, and an object-level rejection answers with
+       * `fieldErrors: {}` — truthy. So a visitor whose form was refused as a whole was
+       * sent to "the notes below" and the notes below were an empty space: the one
+       * failure the form could not recover from was also the only one it explained
+       * nothing about.
+       */
+      const pointed = Object.values(fieldErrors).some((m) => (m?.length ?? 0) > 0);
       return {
         state: 'error',
-        fieldErrors: payload.fieldErrors ?? {},
+        fieldErrors,
         message: payload.message
-          ?? (payload.fieldErrors
+          ?? (pointed
             ? 'Some of that needs another look — see the notes below.'
             : 'We could not take that just now. Please call us instead — it is quicker anyway.'),
       };

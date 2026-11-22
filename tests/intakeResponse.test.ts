@@ -13,7 +13,7 @@
  * when it holds and silent when it breaks. Nothing here would have failed if someone had
  * added `message: \`We already have a case for ${name}\`` to the accepted path.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import {
@@ -105,10 +105,15 @@ describe('what the caller is told', () => {
     const parsed = schema.safeParse({ email: 'not-an-email' });
     expect(parsed.success).toBe(false);
 
+    const strict = z.object({ email: z.string().email() }).strict()
+      .safeParse({ email: 'someone@example.test', surprise: 'x' });
+    expect(strict.success).toBe(false);
+
     const responses = [
       accepted('Thank you — we will call you back.', UUID),
       silentlyDropped(),
       rejected(parsed.error!),
+      rejected(strict.error!),
       limited(),
       failed(),
     ];
@@ -138,6 +143,50 @@ describe('what the caller is told', () => {
     expect(body.fieldErrors.email).toContain('That does not look like an email address.');
     // No stack, no exception name, no path into the code.
     expect(JSON.stringify(body)).not.toMatch(/ZodError|at \w+ \(|\/lib\//);
+  });
+
+  it('says something a visitor can act on when the whole form is refused', async () => {
+    /*
+     * THE HALF OF `flatten()` THAT WAS DROPPED.
+     *
+     * The schemas are `.strict()`, so an unknown key is a rejection — and Zod reports
+     * that against the object, not against a field, which means `fieldErrors` comes back
+     * empty. This answered `{ ok: false, fieldErrors: {} }`: a 400 with no message in it
+     * and no field to hang one on. The form had nothing to render but its own fallback,
+     * and `{}` is truthy, so it picked the one that says "see the notes below" and
+     * printed it above an empty space. The only refusal a visitor could do nothing about
+     * was also the only one that explained nothing.
+     *
+     * The same hole swallows any future `.refine()` written without a `path`.
+     */
+    const warned = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const parsed = z.object({ name: z.string() }).strict()
+        .safeParse({ name: 'A', patternNode: 'a typo for patternNote' });
+      expect(parsed.success).toBe(false);
+
+      const res = rejected(parsed.error!);
+      const body = await res.json() as {
+        ok: boolean; fieldErrors: Record<string, string[]>; message?: string;
+      };
+
+      expect(res.status).toBe(400);
+      expect(body.ok).toBe(false);
+      expect(Object.keys(body.fieldErrors)).toEqual([]);
+      expect(body.message, 'a form refused as a whole told the caller nothing at all')
+        .toBeTruthy();
+
+      // The internal field name and Zod's wording about it stay on this side.
+      const text = JSON.stringify(body);
+      expect(text).not.toContain('patternNode');
+      expect(text).not.toMatch(/Unrecognized key/i);
+
+      // And a developer finds out, because nothing else here would tell them.
+      expect(warned, 'nothing recorded that a form was refused as a whole')
+        .toHaveBeenCalled();
+    } finally {
+      warned.mockRestore();
+    }
   });
 
   it('answers a tripped honeypot with success, not with detection', async () => {
