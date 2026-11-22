@@ -7,7 +7,7 @@ export const metadata: Metadata = publicMetadata({
   description:
     'What we check before anyone is put forward, how we check it, and what we do when '
     + 'something lapses.',
-});
+}, '/vetting');
 
 export default function Vetting() {
   return (

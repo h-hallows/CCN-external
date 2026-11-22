@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Mark">
+  <!--
+    A mark, not a logo. The trading name is blocked on counsel (HSC § 1726(b),
+    22 CCR § 74600(b), Civ. Code § 1812.533(b)(4)) and no wordmark has been drawn, so
+    this is deliberately abstract: an open bracket, which is what a registry is — a
+    thing that holds one side of an introduction and not the whole of it.
+
+    There was no public/ directory and no icon of any kind, so every tab showed the
+    framework default and every link somebody pasted previewed blank.
+  -->
+  <rect width="64" height="64" rx="10" fill="#6B2733"/>
+  <path d="M41 17c-4.6-2.6-10.6-2.2-14.6 1.3C21.6 22.5 20 29.4 22 35.4c2 6 7.4 10.1 13.6 10.3 2.3.1 4.5-.4 6.4-1.4"
+        fill="none" stroke="#FBF9F6" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="44" cy="22" r="4" fill="#FBF9F6"/>
+</svg>

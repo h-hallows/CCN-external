@@ -1,7 +1,10 @@
 import Link from 'next/link';
 import { StatutoryFooter } from '@/components/StatutoryFooter';
+import { CallToAction } from '@/components/CallToAction';
 import { Wrap } from '@/components/layout';
-import { brandBlockers, DISPLAY_NAME, indexable } from '@/lib/brand';
+import {
+  brandBlockers, contactLine, contactResolved, DISPLAY_NAME, indexable,
+} from '@/lib/brand';
 import { NotPublished } from '@/components/NotPublished';
 import type { Metadata } from 'next';
 
@@ -57,23 +60,36 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
     <>
       <header style={{ borderBottom: '1px solid var(--line)', background: 'var(--surface)' }}>
         <Wrap>
-          <div style={{
-            display: 'flex', flexWrap: 'wrap', alignItems: 'baseline',
-            gap: '1.5rem', paddingBlock: '1.1rem',
-          }}>
+          <div className="site-head">
             <Link href="/" style={{
               fontFamily: 'var(--display)', fontSize: 'var(--step-1)',
               color: 'var(--ink)', textDecoration: 'none', letterSpacing: '-0.01em',
             }}>
               {DISPLAY_NAME}
             </Link>
-            <nav style={{ display: 'flex', flexWrap: 'wrap', gap: '1.25rem', fontSize: 'var(--step--1)' }}>
+            <nav aria-label="Main">
               {NAV.map((item) => (
                 <Link key={item.href} href={item.href} style={{ color: 'var(--ink-2)' }}>
                   {item.label}
                 </Link>
               ))}
             </nav>
+            {/*
+              * The one action in the header, and the first one the site has had. A
+              * telephone number beside it when there is one to print — § 1812.533(b)(2)
+              * makes it required somewhere on the page anyway, and the top right is
+              * where somebody with a discharge on Friday afternoon looks first.
+              */}
+            <div className="head-actions">
+              {contactResolved() ? (
+                <span className="nums" style={{
+                  fontSize: 'var(--step--1)', color: 'var(--ink-2)',
+                }}>
+                  {contactLine()}
+                </span>
+              ) : null}
+              <Link href="/enquire" className="btn btn-primary">Arrange care</Link>
+            </div>
           </div>
         </Wrap>
       </header>
@@ -83,6 +99,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       </main>
 
       <Wrap>
+        <CallToAction />
         <StatutoryFooter />
       </Wrap>
     </>

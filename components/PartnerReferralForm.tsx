@@ -12,75 +12,24 @@
  * is a privacy problem for the planner. And nothing about payment, because there isn't
  * any: § 1812.531 forbids a nurses' registry dividing fees with a physician, hospital
  * or their agents, which is most of the people filling this in.
+ *
+ * ITS FOUR OPTION LISTS AND ITS SUBMIT LOGIC ARE NO LONGER HERE. The lists were a second
+ * copy and had already drifted from core's — "a second copy of CARE_LABEL is how
+ * 'Post-surgical' becomes 'Post surgical' on one page", as core's own header puts it —
+ * and they now come from `lib/vocabulary.ts`, where `tests/vocabulary.test.ts` keeps the
+ * set in step with what the database can store. The submit was the only one of its kind
+ * when it was written and is now one of three, so it lives in `components/intakeForm`
+ * — which is also where it picked up the server's field-level errors. This form had
+ * been discarding them: a rejected referral showed one generic sentence and left a
+ * planner guessing which of fourteen fields had been refused.
  */
-import { useState } from 'react';
-import { fieldStyle } from '@/components/SaveForm';
-
-const ROLES: { value: string; label: string }[] = [
-  { value: 'discharge_planner', label: 'Discharge planner' },
-  { value: 'care_manager', label: 'Geriatric care manager' },
-  { value: 'physician', label: 'Physician' },
-  { value: 'surgical_practice', label: 'Surgical practice' },
-  { value: 'attorney', label: 'Attorney' },
-  { value: 'family_office', label: 'Family office' },
-  { value: 'other', label: 'Something else' },
-];
-
-const CARE_TYPES: { value: string; label: string }[] = [
-  { value: 'post_surgical', label: 'Post-surgical recovery' },
-  { value: 'skilled_nursing', label: 'Skilled nursing' },
-  { value: 'personal_care', label: 'Personal care' },
-  { value: 'companion', label: 'Companionship' },
-  { value: 'overnight_newborn', label: 'Overnight newborn care' },
-  { value: 'hospice_support', label: 'Hospice support' },
-  { value: 'respite', label: 'Respite' },
-  { value: 'not_sure', label: 'Not sure yet' },
-];
-
-const AREAS: { value: string; label: string }[] = [
-  { value: 'century_city', label: 'Century City' },
-  { value: 'beverly_hills', label: 'Beverly Hills' },
-  { value: 'westwood', label: 'Westwood' },
-  { value: 'brentwood', label: 'Brentwood' },
-  { value: 'bel_air', label: 'Bel Air' },
-  { value: 'holmby_hills', label: 'Holmby Hills' },
-  { value: 'santa_monica', label: 'Santa Monica' },
-  { value: 'pacific_palisades', label: 'Pacific Palisades' },
-  { value: 'malibu', label: 'Malibu' },
-  { value: 'other', label: 'Elsewhere' },
-];
-
-/** Deliberately plain. Urgency decides how fast we move, not what it costs. */
-const URGENCIES: { value: string; label: string }[] = [
-  { value: 'discharge', label: 'Discharging now' },
-  { value: 'same_day', label: 'Today' },
-  { value: 'next_day', label: 'Tomorrow' },
-  { value: 'routine', label: 'In the next week or two' },
-];
-
-type State =
-  | { state: 'idle' }
-  | { state: 'sending' }
-  | { state: 'sent'; message: string; reference: string }
-  | { state: 'error'; message: string };
-
-function Field({
-  id, label, children,
-}: { id: string; label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <label htmlFor={id} className="label" style={{ display: 'block', marginBottom: '.35rem' }}>
-        {label}
-      </label>
-      {children}
-    </div>
-  );
-}
-
-const twoUp: React.CSSProperties = {
-  display: 'grid', gap: '1rem', marginTop: '1rem',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))',
-};
+import {
+  Confirmation, errorsOf, Field, Group, Honeypot, inputStyle, postIntake, Submit, twoUp,
+  useIntake,
+} from '@/components/intakeForm';
+import {
+  AREA_OPTIONS, CARE_OPTIONS, PARTNER_ROLE_OPTIONS, PARTNER_URGENCY_OPTIONS,
+} from '@/lib/vocabulary';
 
 export interface KnownPartner {
   name: string;
@@ -102,59 +51,22 @@ export function PartnerReferralForm({
    */
   you?: KnownPartner | null;
 }) {
-  const [result, setResult] = useState<State>({ state: 'idle' });
+  const [result, setResult] = useIntake();
+  const errors = errorsOf(result);
 
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
+  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setResult({ state: 'sending' });
-
     const form = new FormData(event.currentTarget);
-    const body: Record<string, unknown> = {};
-    for (const [key, value] of form.entries()) {
-      if (typeof value === 'string') body[key] = value;
-    }
-    body.consentNote = form.get('consentNote') === 'on';
-
-    try {
-      const response = await fetch('/api/refer', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const payload = await response.json() as {
-        ok?: boolean; message?: string; reference?: string;
-      };
-      if (!response.ok || !payload.ok) {
-        setResult({
-          state: 'error',
-          message: payload.message
-            ?? 'We could not take that just now. Please call us instead — it is quicker anyway.',
-        });
-        return;
-      }
-      setResult({
-        state: 'sent',
-        message: payload.message ?? 'Received.',
-        reference: payload.reference ?? '',
-      });
-    } catch {
-      setResult({
-        state: 'error',
-        message: 'We could not take that just now. Please call us instead.',
-      });
-    }
+    setResult(await postIntake('/api/refer', form, (body, f) => {
+      // The schema wants `z.literal(true)`, and a checkbox posts the string "on".
+      body.consentNote = f.get('consentNote') === 'on';
+    }));
   }
 
   if (result.state === 'sent') {
     return (
-      <div
-        role="status"
-        style={{
-          border: '1px solid var(--line-2)', padding: '1.25rem',
-          maxWidth: 'var(--measure)',
-        }}
-      >
-        <p style={{ marginTop: 0 }}>{result.message}</p>
+      <Confirmation message={result.message} reference={result.reference}>
         {/*
           * § 4.3: the acknowledgement "names a real person and gives a direct line".
           * That is the whole trust mechanism here — somebody who has just sent a
@@ -166,95 +78,104 @@ export function PartnerReferralForm({
             : <>It has gone straight to the person who will call the family and then come back to you.</>}
           {directLine ? <> If you need us before that, the direct line is {directLine}.</> : null}
         </p>
-        {result.reference ? (
-          <p className="label nums">Your reference: {result.reference}</p>
-        ) : null}
-      </div>
+      </Confirmation>
     );
   }
 
   return (
-    <form onSubmit={submit} style={{ maxWidth: 'var(--measure)' }}>
-      <fieldset style={{ border: 0, padding: 0, margin: '0 0 2rem' }}>
-        <legend style={{ fontSize: 'var(--step-0)' }}>Who you are</legend>
-        {you ? (
-          <p style={{ fontSize: 'var(--step--1)', color: 'var(--ink-3)', margin: '.4rem 0 0' }}>
-            Filled in from what we have for you, and you can change any of it. Because
-            you are signed in, this referral will show up on your own page with where
-            it has got to.
-          </p>
-        ) : null}
+    <form onSubmit={onSubmit} style={{ maxWidth: 'var(--measure)' }}>
+      <Group
+        legend="Who you are"
+        hint={you
+          ? 'Filled in from what we have for you, and you can change any of it. Because '
+            + 'you are signed in, this referral will show up on your own page with where '
+            + 'it has got to.'
+          : undefined}
+      >
         <div style={twoUp}>
-          <Field id="partnerName" label="Your name">
+          <Field id="partnerName" label="Your name" errors={errors.partnerName}>
             <input id="partnerName" name="partnerName" required maxLength={120}
-              defaultValue={you?.name ?? ''} style={fieldStyle} />
+              defaultValue={you?.name ?? ''} style={inputStyle(errors.partnerName)} />
           </Field>
-          <Field id="partnerOrg" label="Where you work">
+          <Field id="partnerOrg" label="Where you work" errors={errors.partnerOrg}>
             <input id="partnerOrg" name="partnerOrg" maxLength={160}
-              defaultValue={you?.org ?? ''} style={fieldStyle} />
+              defaultValue={you?.org ?? ''} style={inputStyle(errors.partnerOrg)} />
           </Field>
-          <Field id="partnerRole" label="Your role">
-            <select id="partnerRole" name="partnerRole" required defaultValue="" style={fieldStyle}>
+          <Field id="partnerRole" label="Your role" errors={errors.partnerRole}>
+            <select id="partnerRole" name="partnerRole" required defaultValue=""
+              style={inputStyle(errors.partnerRole)}>
               <option value="" disabled>Choose one</option>
-              {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+              {PARTNER_ROLE_OPTIONS.map((r) => (
+                <option key={r.value} value={r.value}>{r.label}</option>
+              ))}
             </select>
           </Field>
-          <Field id="partnerPhone" label="Your phone">
+          <Field id="partnerPhone" label="Your phone" errors={errors.partnerPhone}>
             <input id="partnerPhone" name="partnerPhone" type="tel" required maxLength={32}
-              defaultValue={you?.phone ?? ''} style={fieldStyle} />
+              defaultValue={you?.phone ?? ''} style={inputStyle(errors.partnerPhone)} />
           </Field>
-          <Field id="partnerEmail" label="Your email">
+          <Field id="partnerEmail" label="Your email" errors={errors.partnerEmail}>
             <input id="partnerEmail" name="partnerEmail" type="email" required maxLength={200}
-              defaultValue={you?.email ?? ''} style={fieldStyle} />
+              defaultValue={you?.email ?? ''} style={inputStyle(errors.partnerEmail)} />
           </Field>
         </div>
-      </fieldset>
+      </Group>
 
-      <fieldset style={{ border: 0, padding: 0, margin: '0 0 2rem' }}>
-        <legend style={{ fontSize: 'var(--step-0)' }}>Who the patient is</legend>
-        <p style={{ fontSize: 'var(--step--1)', color: 'var(--ink-3)', margin: '.4rem 0 0' }}>
-          Initials only at this stage. We do not need a name until the family has
-          spoken to us themselves.
-        </p>
+      <Group
+        legend="Who the patient is"
+        hint="Initials only at this stage. We do not need a name until the family has
+          spoken to us themselves."
+      >
         <div style={twoUp}>
-          <Field id="patientInitials" label="Patient initials">
-            <input id="patientInitials" name="patientInitials" required maxLength={8} style={fieldStyle} />
+          <Field id="patientInitials" label="Patient initials" errors={errors.patientInitials}>
+            <input id="patientInitials" name="patientInitials" required maxLength={8}
+              style={inputStyle(errors.patientInitials)} />
           </Field>
-          <Field id="careType" label="What they need">
-            <select id="careType" name="careType" required defaultValue="" style={fieldStyle}>
+          <Field id="careType" label="What they need" errors={errors.careType}>
+            <select id="careType" name="careType" required defaultValue=""
+              style={inputStyle(errors.careType)}>
               <option value="" disabled>Choose one</option>
-              {CARE_TYPES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+              {CARE_OPTIONS.map((c) => (
+                <option key={c.value} value={c.value}>{c.label}</option>
+              ))}
             </select>
           </Field>
-          <Field id="area" label="Where">
-            <select id="area" name="area" required defaultValue="" style={fieldStyle}>
+          <Field id="area" label="Where" errors={errors.area}>
+            <select id="area" name="area" required defaultValue="" style={inputStyle(errors.area)}>
               <option value="" disabled>Choose one</option>
-              {AREAS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
+              {AREA_OPTIONS.map((a) => (
+                <option key={a.value} value={a.value}>{a.label}</option>
+              ))}
             </select>
           </Field>
-          <Field id="urgency" label="When">
-            <select id="urgency" name="urgency" required defaultValue="" style={fieldStyle}>
+          <Field id="urgency" label="When" errors={errors.urgency}>
+            <select id="urgency" name="urgency" required defaultValue=""
+              style={inputStyle(errors.urgency)}>
               <option value="" disabled>Choose one</option>
-              {URGENCIES.map((u) => <option key={u.value} value={u.value}>{u.label}</option>)}
+              {PARTNER_URGENCY_OPTIONS.map((u) => (
+                <option key={u.value} value={u.value}>{u.label}</option>
+              ))}
             </select>
           </Field>
         </div>
-      </fieldset>
+      </Group>
 
-      <fieldset style={{ border: 0, padding: 0, margin: '0 0 2rem' }}>
-        <legend style={{ fontSize: 'var(--step-0)' }}>Who we should call</legend>
+      <Group legend="Who we should call">
         <div style={twoUp}>
-          <Field id="contactName" label="Their name">
-            <input id="contactName" name="contactName" required maxLength={120} style={fieldStyle} />
+          <Field id="contactName" label="Their name" errors={errors.contactName}>
+            <input id="contactName" name="contactName" required maxLength={120}
+              style={inputStyle(errors.contactName)} />
           </Field>
-          <Field id="contactPhone" label="Their phone">
-            <input id="contactPhone" name="contactPhone" type="tel" required maxLength={32} style={fieldStyle} />
+          <Field id="contactPhone" label="Their phone" errors={errors.contactPhone}>
+            <input id="contactPhone" name="contactPhone" type="tel" required maxLength={32}
+              style={inputStyle(errors.contactPhone)} />
           </Field>
         </div>
 
         <div style={{ marginTop: '1rem' }}>
-          <Field id="note" label="Anything we should know (optional)">
-            <textarea id="note" name="note" rows={4} maxLength={1200} style={fieldStyle} />
+          <Field id="note" label="Anything we should know (optional)" errors={errors.note}>
+            <textarea id="note" name="note" rows={4} maxLength={1200}
+              style={inputStyle(errors.note)} />
           </Field>
         </div>
 
@@ -267,23 +188,15 @@ export function PartnerReferralForm({
             The family have agreed I can pass their contact details to you.
           </span>
         </label>
-      </fieldset>
+        {errors.consentNote ? (
+          <p style={{ margin: '.35rem 0 0', fontSize: 'var(--step--1)', color: 'var(--crit)' }}>
+            {errors.consentNote.join('. ')}
+          </p>
+        ) : null}
+      </Group>
 
-      {/* Not hidden with display:none, which some bots check for. */}
-      <div aria-hidden style={{ position: 'absolute', left: '-9999px' }}>
-        <label htmlFor="honeypot">Leave this empty</label>
-        <input id="honeypot" name="honeypot" tabIndex={-1} autoComplete="off" />
-      </div>
-
-      <button type="submit" className="btn btn-primary" disabled={result.state === 'sending'}>
-        {result.state === 'sending' ? 'Sending…' : 'Send this to us'}
-      </button>
-
-      {result.state === 'error' ? (
-        <p role="status" style={{ marginTop: '1rem', fontSize: 'var(--step--1)' }}>
-          {result.message}
-        </p>
-      ) : null}
+      <Honeypot />
+      <Submit label="Send this to us" sendingLabel="Sending…" result={result} />
     </form>
   );
 }

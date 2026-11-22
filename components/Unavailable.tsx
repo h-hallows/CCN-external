@@ -1,4 +1,4 @@
-import { PHONE, PENDING_PHONE, usingPlaceholderName } from '@/lib/brand';
+import { contactLine, contactResolved, usingPlaceholderName } from '@/lib/brand';
 
 /**
  * What a signed-in surface shows when the database is unreachable.
@@ -12,7 +12,10 @@ import { PHONE, PENDING_PHONE, usingPlaceholderName } from '@/lib/brand';
  * is the same switch that lets the site be indexed.
  */
 export function Unavailable({ what }: { what: string }) {
-  const phone = PHONE !== PENDING_PHONE ? PHONE : null;
+  // Was `PHONE !== PENDING_PHONE`, which is true of the other stand-in — so the page
+  // that exists to say the site is not available told people to telephone the words
+  // "Telephone pending".
+  const phone = contactResolved() ? contactLine() : null;
   return (
     <div className="wrap" style={{ maxWidth: '34rem', paddingBlock: '5rem' }}>
       <h1 style={{ fontSize: 'var(--step-2)' }}>{what} is temporarily unavailable</h1>

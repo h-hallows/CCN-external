@@ -91,7 +91,11 @@ describe('W2 — rates are live, never written into a page', () => {
 
   it('the pricing page reads them from the database', () => {
     const pricing = read(join(ROOT, 'app/(marketing)/pricing/page.tsx'));
-    expect(pricing).toContain('currentRateRanges');
+    // Either reader. `rateState` returns the ranges AND whether the table could be
+    // read at all, which the page needs so its empty state can tell "nobody has posted
+    // a band" from "we could not reach our own records" — they had been one sentence.
+    expect(pricing).toMatch(/\b(rateState|currentRateRanges)\b/);
+    expect(pricing).toContain("from '@/lib/rates'");
   });
 
   it('revalidates hourly, and the literal agrees with the shared constant', () => {
@@ -259,7 +263,7 @@ describe('W4 — robots, sitemap and the advertising record', () => {
 
   it('keeps the description and withholds only the indexing', async () => {
     const { publicMetadata } = await import('@/lib/brand');
-    const meta = publicMetadata({ title: 'Rates', description: 'What we charge.' });
+    const meta = publicMetadata({ title: 'Rates', description: 'What we charge.' }, '/pricing');
     // Someone opening the page sees the real thing; a crawler is told not to keep it.
     expect(meta.title).toBe('Rates');
     expect(meta.description).toBe('What we charge.');
@@ -267,7 +271,7 @@ describe('W4 — robots, sitemap and the advertising record', () => {
       { index: false, follow: false });
 
     const live = await withFiledName(() =>
-      publicMetadata({ title: 'Rates', description: 'What we charge.' }));
+      publicMetadata({ title: 'Rates', description: 'What we charge.' }, '/pricing'));
     expect((live as { robots?: unknown }).robots).toBeUndefined();
   });
 
@@ -294,13 +298,40 @@ describe('W4 — robots, sitemap and the advertising record', () => {
 });
 
 describe('the marketing site deploys without a database', () => {
-  it('pricing degrades to its empty state rather than failing the build', () => {
+  it('pricing degrades to its empty state rather than failing the build', async () => {
     const rates = readFileSync(join(ROOT, 'lib/rates.ts'), 'utf8');
     // /pricing is prerendered, so a throw in this query fails the whole build. A
     // marketing site that cannot deploy because the rates table blipped is worse than
     // one that says "call us" until the next revalidation.
     expect(rates).toMatch(/try\s*\{[\s\S]*catch/);
-    expect(rates).toContain('return [];');
+    // Asserted by behaviour rather than by the spelling of the return. The source
+    // string this used to look for was `return [];`, which stopped existing the moment
+    // the fallback grew a second field — while the fallback itself was unchanged.
+    const { rateState } = await import('@/lib/rates');
+    const state = await rateState('definitely_not_a_service_key');
+    expect(Array.isArray(state.ranges)).toBe(true);
+  });
+
+  it('says which empty state it is in, rather than one sentence for both', () => {
+    const rates = readFileSync(join(ROOT, 'lib/rates.ts'), 'utf8');
+    expect(rates).toContain('unavailable: true');
+    const page = readFileSync(join(ROOT, 'app/(marketing)/pricing/page.tsx'), 'utf8');
+    expect(page).toContain('unavailable');
+  });
+
+  /*
+   * § 1812.533(b)(1). The seed writes fourteen demonstration bands so the page has
+   * something to render in development, and this query did not look at who posted a
+   * band — so a seeded database published all fourteen as the registry's own claim
+   * about what care costs. On the console's new /rates screen, 14 of 14 live bands
+   * were still authored by the seed.
+   */
+  it('never publishes a band nobody posted', () => {
+    // Comments stripped first. The comment above the query quotes the predicate to
+    // explain it, so a match against the raw file passed with the predicate deleted.
+    const rates = readFileSync(join(ROOT, 'lib/rates.ts'), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(rates).toMatch(/posted_by\s*<>\s*'seed'/);
   });
 
   it('the pricing page has that empty state to fall back to', () => {
@@ -409,7 +440,7 @@ describe('nothing advertises while the brand is withheld', () => {
       description: 'Private recovery cover, arranged after a call.',
       openGraph: { title: 'x', description: 'y' },
     };
-    const out = publicMetadata(base) as Record<string, unknown>;
+    const out = publicMetadata(base, '/pricing') as Record<string, unknown>;
     // tests/setup.ts configures a name and phone, so nothing is blocked here and the
     // base passes through untouched — which is the branch that must not over-fire.
     expect(out.description).toBe(base.description);
@@ -441,7 +472,7 @@ describe('nothing advertises while the brand is withheld', () => {
       const out = brand.publicMetadata({
         title: 'Real marketing title',
         description: 'Real marketing description.',
-      }) as Record<string, unknown>;
+      }, '/pricing') as Record<string, unknown>;
       // The page is whole; only the indexing is withheld.
       expect(out.title).toBe('Real marketing title');
       expect(out.description).toBe('Real marketing description.');
@@ -476,7 +507,7 @@ describe('nothing advertises while the brand is withheld', () => {
         title: 'Real marketing title',
         description: 'Real marketing description.',
         openGraph: { title: 'x' },
-      }) as Record<string, unknown>;
+      }, '/pricing') as Record<string, unknown>;
       expect(out.description).toBeUndefined();
       expect(out.openGraph).toBeUndefined();
       expect(out.title).toEqual({ absolute: brand.NOT_PUBLISHED_TITLE });

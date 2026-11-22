@@ -24,5 +24,13 @@ export const MARKETING_ROUTES: {
   { path: '/vetting', priority: 0.8, changeFrequency: 'monthly' },
   { path: '/for-providers', priority: 0.7, changeFrequency: 'monthly' },
   { path: '/for-partners', priority: 0.7, changeFrequency: 'monthly' },
+  /*
+   * The three doors, above the pages that argue for them. `/enquire` is the one the
+   * business runs on, so it sits level with the homepage — and `tests/marketing.test.ts`
+   * asserts every route under app/(marketing) appears in this list, which is what will
+   * catch the next page that is built and then never listed.
+   */
+  { path: '/enquire', priority: 1.0, changeFrequency: 'monthly' },
   { path: '/refer', priority: 0.8, changeFrequency: 'monthly' },
+  { path: '/apply', priority: 0.7, changeFrequency: 'monthly' },
 ];

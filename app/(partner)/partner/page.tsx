@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getPortalSession } from '@/lib/session';
 import { OUTCOME_NOTE, partnerReferrals, referralStanding } from '@/lib/partner';
-import { contactLine, OPERATOR_NAME } from '@/lib/brand';
+import { contactLine, contactResolved, OPERATOR_NAME } from '@/lib/brand';
 import { CARE_LABEL, AREA_LABEL } from '@/lib/opportunities';
 import { Prose, Section, Stack } from '@/components/layout';
 
@@ -17,7 +17,7 @@ export default async function PartnerView() {
   const session = await getPortalSession();
   if (!session) redirect('/login');
   const referrals = await partnerReferrals(session);
-  const line = contactLine();
+  const line = contactResolved() ? contactLine() : '';
 
   return (
     <Stack gap="lg">

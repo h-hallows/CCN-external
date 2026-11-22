@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { Metadata } from 'next';
 import { publicMetadata } from '@/lib/brand';
 import { Prose, Section, Stack } from '@/components/layout';
@@ -7,20 +8,23 @@ export const metadata: Metadata = publicMetadata({
   description:
     'How referrals work here: you set your rate, you choose what you take, and we never '
     + 'charge you anything.',
-});
+}, '/for-providers');
 
 export default function ForProviders() {
   return (
     <Stack gap="lg">
       <Section>
         <h1>For nurses and caregivers</h1>
-        <Prose>
-          <p style={{ fontSize: 'var(--step-1)', color: 'var(--ink-2)' }}>
-            We refer work to experienced people in West Los Angeles. You set your rate,
-            you say what you will and will not take, and you are never charged a fee of
-            any kind.
-          </p>
-        </Prose>
+        <p className="lede">
+          We refer work to experienced people in West Los Angeles. You set your rate,
+          you say what you will and will not take, and you are never charged a fee of
+          any kind.
+        </p>
+        {/* The page made the whole argument and then stopped, with `/api/apply`
+            deployed and nothing on the site calling it. */}
+        <p style={{ marginTop: '1.75rem' }}>
+          <Link href="/apply" className="btn btn-primary">Apply to be referred</Link>
+        </p>
       </Section>
 
       <Section title="What you can expect" as="h2">

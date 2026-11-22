@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { OPERATOR_NAME, contactLine, publicMetadata } from '@/lib/brand';
+import { OPERATOR_NAME, contactLine, contactResolved, publicMetadata } from '@/lib/brand';
 import { PartnerReferralForm } from '@/components/PartnerReferralForm';
 import { unstable_rethrow } from 'next/navigation';
 import { getPortalSession } from '@/lib/session';
@@ -23,10 +23,16 @@ export const metadata: Metadata = publicMetadata({
   description:
     'For discharge planners, care managers and practices. One form, no account, and '
     + 'a call back from a named person.',
-});
+}, '/refer');
 
 export default async function Refer() {
-  const line = contactLine();
+  /*
+   * Only when there is one. The acknowledgement said "the direct line is Telephone
+   * pending" on the live deployment, to a discharge planner who had just sent us a
+   * family — `contactLine()` is what to print in the footer, not proof that a number
+   * exists.
+   */
+  const line = contactResolved() ? contactLine() : '';
 
   /*
    * A signed-in partner gets their own details filled in, and the form says their

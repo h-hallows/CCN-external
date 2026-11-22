@@ -7,7 +7,6 @@ import { crossedPath, faqJsonLd } from '@/lib/crossed';
 import {
   CREDENTIAL_LABEL, CREDENTIAL_ORDER, currentRateRanges, formatRange,
 } from '@/lib/rates';
-import { siteUrl } from '@/lib/site';
 import { Prose, Section, Stack } from '@/components/layout';
 
 /**
@@ -34,12 +33,16 @@ export async function generateMetadata(
   const { service, area } = await params;
   const page = crossedPage(service, area);
   if (!page) return {};
+  /*
+   * This was the one page of the eight that declared its own canonical, which is why
+   * the rule is now an argument rather than a convention — the other seven inherited
+   * the root layout's `/` and nothing noticed.
+   */
   return publicMetadata({
     title: page.title,
     description: page.summary,
-    alternates: { canonical: `${siteUrl()}${crossedPath(page)}` },
     openGraph: { title: page.title, description: page.summary, type: 'article' },
-  });
+  }, crossedPath(page));
 }
 
 export default async function CrossedPage(
@@ -150,11 +153,23 @@ export default async function CrossedPage(
           </Section>
         ) : null}
 
+        {/*
+          * The one thing these pages are for. They exist to be found by somebody
+          * searching for a service in a place, and they ended with a link to an
+          * explainer — so the best-targeted traffic on the site arrived on a page with
+          * no way to act on it. The care type is carried through, so nobody who has
+          * just read a page about this service picks it out of a list again.
+          */}
         <Section>
+          <p style={{ display: 'flex', flexWrap: 'wrap', gap: '.75rem' }}>
+            <Link href={`/enquire?care=${page.rateKey}`} className="btn btn-primary">
+              Arrange this
+            </Link>
+            <Link href="/how-it-works" className="btn">How a referral works</Link>
+          </p>
           <Prose>
-            <p>
-              <Link href="/how-it-works">How a referral works</Link>, or call us and we
-              will go through it. Reviewed <span className="nums">{page.reviewedOn}</span>.
+            <p style={{ marginTop: '1.25rem', fontSize: 'var(--step--1)', color: 'var(--ink-3)' }}>
+              Reviewed <span className="nums">{page.reviewedOn}</span>.
             </p>
           </Prose>
         </Section>

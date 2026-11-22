@@ -36,10 +36,20 @@ export async function rateLimit(
   request: Request,
   { key, max, windowSec }: RateLimitOptions,
 ): Promise<boolean> {
-  const { query } = await getDb();
   const hash = callerHash(request, key);
 
   try {
+    /*
+     * Inside the try, which is the whole point of the try.
+     *
+     * `getDb()` sat above it. It is the call that fails when there is no database — a
+     * missing connection string, a host that is down, a pool that cannot be created —
+     * and every one of those threw straight past the handler written to fail open and
+     * out of the route, which answers 500. So the fallback the catch exists to provide
+     * could not run in the case it was written for, and the copy under it ("We could
+     * not record that just now. Please call us.") had never once rendered.
+     */
+    const { query } = await getDb();
     const [row] = await query<{ n: string }>(
       `SELECT count(*)::text AS n FROM rate_limit_hits
         WHERE route = $1 AND key_hash = $2 AND at > now() - ($3 || ' seconds')::interval`,

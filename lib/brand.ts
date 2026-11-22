@@ -103,18 +103,46 @@ export function legalNameResolved(): boolean {
 }
 
 /**
+ * Whether there is a telephone number somebody could actually dial.
+ *
+ * THERE ARE TWO STAND-INS AND THE CHECKS WERE READING THE WRONG ONE. `PHONE` falls back
+ * to `PENDING_PHONE` once a filed name is claimed, and to the prose `PRELAUNCH_CONTACT`
+ * — "Telephone pending" — before that. Every check compared against the first. So on the
+ * deployment as it has been running, with no name filed, `PHONE` held the prose and
+ * `PHONE !== PENDING_PHONE` was true: the site considered itself to have a telephone
+ * number, and four screens served "call us on Telephone pending — someone will pick up."
+ * `/api/health` reported `"contact": true` at the same time, which is the part that
+ * would have kept anybody from going looking.
+ *
+ * One predicate now, and it asks the only question worth asking: did somebody configure
+ * a number. Neither stand-in is one.
+ */
+function phoneConfigured(): boolean {
+  return PHONE !== PENDING_PHONE
+    && PHONE !== PRELAUNCH_CONTACT
+    && PHONE.trim().length > 0;
+}
+
+/**
  * § 1812.533(b)(2) is satisfied by a street address OR a business telephone number.
  * Either will do; neither being present will not.
  */
 export function contactResolved(): boolean {
-  return (PHONE !== PENDING_PHONE && PHONE.trim().length > 0)
-    || (STREET !== null && STREET.trim().length > 0);
+  return phoneConfigured() || (STREET !== null && STREET.trim().length > 0);
 }
 
-/** What the footer prints as the second required line. */
+/**
+ * What the footer prints as the second required line.
+ *
+ * Deliberately still returns the prose stand-in before launch, and `tests/marketing.test.ts`
+ * asserts it: a footer that prints nothing is a footer somebody ships without noticing,
+ * and "Telephone pending" is true. This is the line to PRINT. Whether there is a contact
+ * somebody can USE is `contactResolved()`, and the two had been collapsed into one.
+ */
 export function contactLine(): string {
-  if (PHONE !== PENDING_PHONE && PHONE.trim()) return PHONE.trim();
+  if (phoneConfigured()) return PHONE.trim();
   if (STREET && STREET.trim()) return STREET.trim();
+  if (PHONE === PRELAUNCH_CONTACT) return PRELAUNCH_CONTACT;
   return '';
 }
 
@@ -167,7 +195,31 @@ export function brandBlockers(): string[] {
  */
 export const NOT_PUBLISHED_TITLE = 'Not yet published';
 
-export function publicMetadata<T extends Record<string, unknown>>(base: T): T {
+export function publicMetadata<T extends Record<string, unknown>>(
+  base: T,
+  /**
+   * The route this metadata is for, as the canonical URL.
+   *
+   * Required, and that is the whole fix. The root layout sets
+   * `alternates: { canonical: '/' }`, which Next inherits — so seven of the eight public
+   * pages were declaring the HOMEPAGE as their canonical URL. Invisible today because
+   * every page is `noindex` until a filed name is configured; the day the name lands it
+   * collapses the entire marketing site to one indexable URL, and the crossed landing
+   * pages — the whole point of which is to rank for a service in an area — point at
+   * somewhere else.
+   *
+   * `tests/marketing.test.ts` already asserted canonicals were absolute, which they
+   * were. It did not ask whether they were right. A required argument is what stops the
+   * next page from inheriting it, because a page cannot forget to pass one.
+   */
+  canonicalPath: string,
+): T {
+  const withCanonical = {
+    ...base,
+    alternates: { ...(base.alternates as object ?? {}), canonical: canonicalPath },
+  } as T;
+  base = withCanonical;
+
   if (brandBlockers().length > 0) {
     return {
       ...base,

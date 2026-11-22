@@ -36,6 +36,48 @@ any of those appear.
 Nothing here may write to `referrals`, `timeline_entries` or `disclosures`. A test scans
 every source file, and in deployment the database role does not hold the privilege.
 
+## The three doors
+
+`/enquire` for a household, `/refer` for a discharge planner, `/apply` for a nurse. Each
+posts to its own route under `app/api`, which validates against the same strict schema it
+stores from, rate-limits by hashed caller and carries a honeypot.
+
+Two of the three had no door on them. `/api/inquiry` and `/api/apply` were deployed,
+validated and reachable from nothing — the whole application contained exactly one
+`fetch(` and it went to `/api/refer` — and `/refer` itself was linked from two places,
+both inside the partner portal, which needs an invite from an operator. A discharge
+planner had to already be a customer to find the form that makes them one.
+
+`tests/doors.test.ts` is the rule that came out of it, and it is a rule rather than three
+assertions: **every route under `app/api` that accepts a POST must be named by something
+on the site that posts to it.** A fourth intake route added later is covered by the same
+test. It also checks that every internal link resolves to a page, that every page is in
+the sitemap, and that no page inherits the root layout's canonical URL — seven of the
+eight public pages had been declaring the homepage as theirs, which is invisible under
+`noindex` and collapses the site to one indexable URL the day a filed name is configured.
+
+`lib/vocabulary.ts` is the one public-facing list of care types, areas, urgencies and the
+rest. The wording is deliberately not core's — a console column is read by somebody who
+already knows what it means, and a household reading a form has not met us — but the SET
+is asserted against core's, so a care type added there fails the build here until
+somebody chooses the household's wording for it.
+
+## The two stand-ins
+
+`lib/brand.ts` holds two placeholder phone values, and this is the trap: `PHONE` falls
+back to `PENDING_PHONE` once a filed name is claimed, and to the prose `"Telephone
+pending"` before that. Every check compared against the first, so on a deployment with no
+name filed the site considered itself to have a telephone number — four screens served
+"call us on Telephone pending — someone will pick up", and `/api/health` reported
+`"contact": true` at the same time.
+
+So there are two questions and they are two functions. **`contactLine()` is what to
+print** — it still returns the prose before launch, because a blank footer is a footer
+somebody ships without noticing. **`contactResolved()` is whether there is a contact
+somebody can use**, and it is the only thing that may decide whether a page tells a
+reader to telephone. A call site comparing `PHONE` to one sentinel fails
+`tests/vocabulary.test.ts`.
+
 ## Running it
 
 ```bash

@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { Metadata } from 'next';
 import { publicMetadata } from '@/lib/brand';
 import { Prose, Section, Stack } from '@/components/layout';
@@ -7,7 +8,7 @@ export const metadata: Metadata = publicMetadata({
   description:
     'Hand us a referral in one step and get a same-day acknowledgement with a named '
     + 'person and a direct line.',
-});
+}, '/for-partners');
 
 export default function ForPartners() {
   return (
@@ -36,6 +37,17 @@ export default function ForPartners() {
             with who we spoke to and what happened.
           </p>
         </Prose>
+        {/*
+          * The link this page spent four paragraphs describing and did not have.
+          *
+          * `/refer` was reachable from two places, `app/(partner)/layout.tsx` and the
+          * partner dashboard — both inside the portal, which needs a session, which
+          * needs an invite from an operator. A discharge planner had to already be a
+          * customer to find the form that makes them one.
+          */}
+        <p style={{ marginTop: '1.5rem' }}>
+          <Link href="/refer" className="btn btn-primary">Refer a patient</Link>
+        </p>
       </Section>
 
       <Section title="What we do not offer" as="h2">

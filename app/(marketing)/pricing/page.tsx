@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { publicMetadata } from '@/lib/brand';
 import { Prose, Section, Stack } from '@/components/layout';
 import {
-  CREDENTIAL_LABEL, CREDENTIAL_ORDER, currentRateRanges, formatRange, type RateRange,
+  CREDENTIAL_LABEL, CREDENTIAL_ORDER, formatRange, rateState, type RateRange,
 } from '@/lib/rates';
 
 export const metadata: Metadata = publicMetadata({
@@ -10,7 +10,7 @@ export const metadata: Metadata = publicMetadata({
   description:
     'What care costs in Century City and West Los Angeles, by credential level, and how '
     + 'our fee works.',
-});
+}, '/pricing');
 
 /**
  * Hourly. The ranges come from the table the operator maintains, never from this file.
@@ -36,7 +36,7 @@ const SERVICE_ORDER = [
 ];
 
 export default async function Pricing() {
-  const ranges = await currentRateRanges();
+  const { ranges, unavailable } = await rateState();
   const byService = new Map<string, RateRange[]>();
   for (const r of ranges) {
     byService.set(r.serviceKey, [...(byService.get(r.serviceKey) ?? []), r]);
@@ -63,9 +63,17 @@ export default async function Pricing() {
       <Section title="By credential level" as="h2">
         {services.length === 0 ? (
           <Prose>
+            {/*
+              * Two sentences, because they are two different facts and the page used to
+              * say the first one for both: nothing posted, and could not read the table.
+              */}
             <p>
-              Our current ranges are being updated. Call and we will tell you what we are
-              seeing this week.
+              {unavailable
+                ? 'We cannot reach our own rate records just now. Call us and we will '
+                  + 'tell you what we are seeing this week.'
+                : 'No ranges are posted at the moment. Call us and we will tell you what '
+                  + 'we are seeing this week — the numbers here come from our own roster '
+                  + 'and we would rather show you none than show you stale ones.'}
             </p>
           </Prose>
         ) : (

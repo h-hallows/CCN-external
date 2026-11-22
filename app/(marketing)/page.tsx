@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { Prose, Section, Stack } from '@/components/layout';
 import { DISPLAY_NAME, LEGAL_NAME, publicMetadata, brandBlockers } from '@/lib/brand';
+import { AREA_OPTIONS, CARE_OPTIONS } from '@/lib/vocabulary';
 
 export const metadata: Metadata = publicMetadata({
   // `absolute`, or the root template appends the name to itself.
@@ -9,7 +10,7 @@ export const metadata: Metadata = publicMetadata({
   description:
     'A private nursing and caregiver referral registry serving Century City and West '
     + 'Los Angeles. We refer; you engage directly.',
-});
+}, '/');
 
 /**
  * LocalBusiness only. Never MedicalBusiness, HomeHealthCareService, Physician or
@@ -30,6 +31,9 @@ const jsonLd = () => ({
     'Holmby Hills', 'Santa Monica', 'Pacific Palisades', 'Malibu',
   ],
 });
+
+/** The care types, minus `not_sure` — that is an answer on a form, not a service. */
+const SERVICES = CARE_OPTIONS.filter((c) => c.value !== 'not_sure');
 
 export default function Home() {
   return (
@@ -53,33 +57,78 @@ export default function Home() {
         <Section>
           <p className="label">Century City and West Los Angeles</p>
           <h1>Care at home, arranged by someone who answers the phone.</h1>
-          <Prose>
-            <p style={{ fontSize: 'var(--step-1)', color: 'var(--ink-2)' }}>
-              We are a referral registry. We keep a small roster of experienced nurses and
-              caregivers, we check their credentials against the issuing source, and when
-              you call we put forward the two or three who actually fit — not a directory
-              to search.
-            </p>
-            <p>
-              You engage the provider directly and agree the rate with them. We make the
-              introduction, hold the paperwork, and stay reachable when something changes
-              at eight on a Sunday morning.
-            </p>
-            <p>
-              <Link href="/how-it-works" className="btn btn-primary">How it works</Link>
-            </p>
-          </Prose>
+          <p className="lede">
+            We are a referral registry. We keep a small roster of experienced nurses and
+            caregivers, we check their credentials against the issuing source, and when
+            you call we put forward the two or three who actually fit — not a directory
+            to search.
+          </p>
+          {/*
+            * The first thing on the site that a reader can do. Until now the homepage's
+            * only action was a link to a page explaining the business, and the enquiry
+            * route it should have pointed at had no form attached to it at all.
+            */}
+          <p style={{ display: 'flex', flexWrap: 'wrap', gap: '.75rem', marginTop: '1.75rem' }}>
+            <Link href="/enquire" className="btn btn-primary">Arrange care</Link>
+            <Link href="/how-it-works" className="btn">How it works</Link>
+          </p>
+          <p style={{ marginTop: '1.25rem', color: 'var(--ink-2)' }}>
+            You engage the provider directly and agree the rate with them. We make the
+            introduction, hold the paperwork, and stay reachable when something changes
+            at eight on a Sunday morning.
+          </p>
         </Section>
 
-        <Section title="What we are asked for most" as="h2">
-          <Prose>
-            <ul>
-              <li>Going home after surgery, and the first two weeks are the hard ones.</li>
-              <li>A parent who is managing, but not quite, and nobody local to notice.</li>
-              <li>Overnight cover so the person doing it all can sleep.</li>
-              <li>A nurse for a condition that needs one, under a physician&rsquo;s direction.</li>
-            </ul>
-          </Prose>
+        <Section title="What we are asked for" as="h2">
+          <p className="lede" style={{ marginBottom: '1.5rem' }}>
+            Most people arrive with one of these and are not sure which. That is what the
+            call is for.
+          </p>
+          <div className="grid">
+            {SERVICES.map((s) => (
+              <Link
+                key={s.value}
+                href={`/enquire?care=${s.value}`}
+                className="card"
+                style={{ textDecoration: 'none', color: 'var(--ink)', display: 'block' }}
+              >
+                <h3 style={{ color: 'var(--accent)' }}>{s.label}</h3>
+                <p style={{ fontSize: 'var(--step--1)', color: 'var(--ink-2)', margin: 0 }}>
+                  {s.note}
+                </p>
+              </Link>
+            ))}
+          </div>
+        </Section>
+
+        <Section title="How an introduction actually goes" as="h2">
+          <ol className="steps">
+            <li>
+              <strong>You call, or you send the form.</strong> If somebody is discharging
+              today we move today.
+            </li>
+            <li>
+              <strong>We ask what the days look like.</strong> Who is around, what has
+              been tried, what the hard part is. Nobody is matched off a dropdown.
+            </li>
+            <li>
+              <strong>We put forward two or three people.</strong> With their rate, what
+              they have actually done, and what they have said they will and will not
+              take. Everyone on that list has had their credentials checked against the
+              body that issued them.
+            </li>
+            <li>
+              <strong>You meet them, and you choose.</strong> You engage whoever you
+              choose, directly, and agree the rate with them.
+            </li>
+            <li>
+              <strong>We stay reachable.</strong> When somebody is ill, or the hours
+              change, or it is not working — that is the call we are actually here for.
+            </li>
+          </ol>
+          <p style={{ marginTop: '1.5rem' }}>
+            <Link href="/how-it-works" className="btn">The longer version</Link>
+          </p>
         </Section>
 
         <Section title="What we are not" as="h2">
@@ -94,7 +143,42 @@ export default function Home() {
               We do not provide home care agency services, and we do not direct or
               supervise how a referred provider does their work.
             </p>
+            <p className="aside-note">
+              It also means we charge you and never them. Our fee is a fixed percentage
+              of the engagement, agreed before any introduction is made, and a provider
+              is never charged anything of any kind.{' '}
+              <Link href="/pricing">What care costs here</Link>.
+            </p>
           </Prose>
+        </Section>
+
+        <Section title="Where we work" as="h2">
+          <Prose>
+            <p>
+              Close enough that somebody can get to you, and that we know who is good in
+              your particular building or canyon.
+            </p>
+          </Prose>
+          <p style={{
+            display: 'flex', flexWrap: 'wrap', gap: '.4rem .5rem', marginTop: '1rem',
+            maxWidth: 'none',
+          }}>
+            {AREA_OPTIONS.filter((a) => a.value !== 'other').map((a) => (
+              <span
+                key={a.value}
+                style={{
+                  border: '1px solid var(--line)', background: 'var(--surface)',
+                  borderRadius: 6, padding: '.3rem .7rem', fontSize: 'var(--step--1)',
+                }}
+              >
+                {a.label}
+              </span>
+            ))}
+          </p>
+          <p style={{ marginTop: '1rem', fontSize: 'var(--step--1)', color: 'var(--ink-3)' }}>
+            Somewhere else nearby? Ask anyway — we will tell you honestly whether we have
+            anyone who can get to you.
+          </p>
         </Section>
       </Stack>
     </>

@@ -7,7 +7,7 @@ export const metadata: Metadata = publicMetadata({
   description:
     'A call, a short list of two or three people, and an introduction. What we do, what '
     + 'you do, and who the provider works for.',
-});
+}, '/how-it-works');
 
 const QUESTIONS = [
   {

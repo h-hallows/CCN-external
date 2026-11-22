@@ -48,11 +48,35 @@ export const CREDENTIAL_ORDER: CredentialLevel[] = ['companion', 'hca', 'cna', '
  * page has that empty state already.
  */
 export async function currentRateRanges(serviceKey?: string): Promise<RateRange[]> {
+  return (await rateState(serviceKey)).ranges;
+}
+
+export interface RateState {
+  ranges: RateRange[];
+  /**
+   * True when the table could not be read at all, as opposed to having nothing posted.
+   *
+   * Two different pages for a reader. "Nobody has posted a band for respite care" and
+   * "we could not reach our own records just now" are not the same sentence, and the
+   * empty state said the second thing for both.
+   *
+   * It also matters for the cache. This page is ISR on a one-hour revalidate, so a
+   * failed read that returns [] is a SUCCESSFUL render of the empty state, and Next
+   * caches it for the full hour — on `/pricing` and on all ten crossed landing pages at
+   * once. Throwing would make Next keep serving the last good page instead, which is
+   * what we want in production and not what we want during the build: the pages are
+   * prerendered, so a throw fails the deploy over a blip. Recorded in DEFERRED.md
+   * rather than guessed at; what this flag buys today is copy that is true.
+   */
+  unavailable: boolean;
+}
+
+export async function rateState(serviceKey?: string): Promise<RateState> {
   try {
-    return await fetchRateRanges(serviceKey);
+    return { ranges: await fetchRateRanges(serviceKey), unavailable: false };
   } catch (err) {
     console.error('[rates] could not read rate_ranges; rendering the empty state', err);
-    return [];
+    return { ranges: [], unavailable: true };
   }
 }
 
@@ -61,10 +85,27 @@ async function fetchRateRanges(serviceKey?: string): Promise<RateRange[]> {
   const rows = await query<{
     service_key: string; credential_level: string; low: string; high: string; note: string | null;
   }>(
+    /*
+     * `posted_by <> 'seed'` is a publishing decision, not a tidy-up.
+     *
+     * `rate_ranges` carries who posted each band and when (core migration 0026). The
+     * seed writes fourteen demonstration bands so the pricing page has something to
+     * render in development — and this query did not look at the column, so attaching
+     * a seeded database to the public site published all fourteen as the registry's own
+     * claim about what care costs. On the first load of the console's new `/rates`
+     * screen, 14 of 14 live bands were still authored by the seed.
+     *
+     * § 1812.533(b)(1) prohibits publishing false or misleading information about the
+     * services a registry refers for. A number nobody at this registry posted is not a
+     * claim it is entitled to make, so the page shows its empty state — "call and we
+     * will tell you what we are seeing this week" — until an operator posts one. That
+     * is honest, it converts worse, and the console says exactly what to do about it.
+     */
     `SELECT DISTINCT ON (service_key, credential_level)
             service_key, credential_level, low::text, high::text, note
        FROM rate_ranges
       WHERE effective_from <= (now() AT TIME ZONE 'America/Los_Angeles')::date
+        AND posted_by <> 'seed'
         AND ($1::text IS NULL OR service_key = $1)
       ORDER BY service_key, credential_level, effective_from DESC`,
     [serviceKey ?? null],
