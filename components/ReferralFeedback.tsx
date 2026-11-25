@@ -94,11 +94,11 @@ export function ReferralFeedback({ referralId }: { referralId: string }) {
         name="notes"
         rows={5}
         maxLength={2000}
+        // No font size. The floor in app/globals.css decides it; see components/SaveForm.
         style={{
           width: '100%', padding: '.7rem .85rem',
           border: '1px solid var(--line-2)', background: 'var(--surface)',
-          color: 'var(--ink)', font: 'inherit', fontSize: 'var(--step--1)',
-          lineHeight: 1.6, resize: 'vertical',
+          color: 'var(--ink)', lineHeight: 1.6, resize: 'vertical',
         }}
       />
 

@@ -64,14 +64,24 @@ export function SaveForm({
   );
 }
 
-/** Shared field styling, so the provider screens do not drift from each other. */
+/**
+ * Shared field styling, so the provider screens do not drift from each other.
+ *
+ * NO FONT SIZE HERE, AND NONE IN ANY OTHER FIELD STYLE. This object said
+ * `fontSize: 'var(--step--1)'` — about 14px — and it is the style behind every field on
+ * the public forms and the provider screens, so every one of them zoomed Mobile Safari
+ * on focus and left the visitor zoomed in. app/globals.css now floors every text-entry
+ * control at 16px and an inline font size is the one thing that could undercut it, so
+ * the size is the stylesheet's to decide and this says nothing about it.
+ *
+ * The padding is left as it was: at the floored size a field stands 48px tall, which
+ * clears the 44px minimum for something aimed at with a thumb.
+ */
 export const fieldStyle: React.CSSProperties = {
   width: '100%',
   padding: '.65rem .8rem',
   border: '1px solid var(--line-2)',
   background: 'var(--surface)',
   color: 'var(--ink)',
-  font: 'inherit',
-  fontSize: 'var(--step--1)',
   lineHeight: 1.6,
 };

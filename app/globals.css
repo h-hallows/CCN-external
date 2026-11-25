@@ -41,6 +41,23 @@
   --measure: 66ch;
   --gutter: clamp(1rem, 4vw, 2.5rem);
 
+  /*
+   * The smallest a form control may be, and deliberately not part of the scale above.
+   *
+   * Mobile Safari zooms the viewport whenever a focused input, select or textarea
+   * computes below 16px, and it does not zoom back out afterwards. --step--1 tops out at
+   * about 14px and every field on this site was set to it, so tapping the first box of
+   * the enquiry form — the door the business runs on — jerked the layout and left the
+   * visitor zoomed in, mid-form, on the one page that has to be easy.
+   *
+   * The floor is declared in px because 16px is what Safari measures, not in a rem that
+   * a changed root size could quietly take under it. --control-font is the size a
+   * control asks for; max() of the two is what it gets, so a control may be larger than
+   * the floor and cannot be smaller.
+   */
+  --control-font: var(--step-0);
+  --control-font-min: 16px;
+
   color-scheme: light;
 }
 
@@ -110,6 +127,33 @@ a:hover { color: var(--accent-2); }
 
 /* No border-radius above 6px, anywhere. */
 .card, .btn, input, select, textarea { border-radius: 6px; }
+
+/*
+ * THE FLOOR. No focusable text-entry control on this site renders below 16px.
+ *
+ * Stated here rather than fixed field by field, because the field-by-field version is
+ * true until somebody adds a form: a control that inherits this is one nobody has to
+ * remember. tests/controlFontFloor.test.ts asserts both halves — that this rule exists and
+ * that no component declares a font size on a control that could undercut it.
+ *
+ * WHY IT CARRIES !important, which nothing else here does. Every field on the site is
+ * styled with an inline style object, and an inline style beats a stylesheet outright.
+ * Without !important this rule is present, correct, green and never reached — the exact
+ * failure this codebase keeps finding — and app/login would still be relying on
+ * `font: inherit` picking up a 16px ancestor. The size above the floor stays the
+ * component's choice, through --control-font; the floor itself is not negotiable.
+ *
+ * Checkboxes and radios are excluded on purpose. They hold no text to zoom into, and
+ * several engines size the box itself from the font, so flooring them would change how
+ * the availability grid and the consent rows look for no gain.
+ */
+input:not([type='checkbox']):not([type='radio']),
+select,
+textarea,
+[contenteditable]:not([contenteditable='false']) {
+  font-family: inherit;
+  font-size: max(var(--control-font-min), var(--control-font)) !important;
+}
 
 /*
  * `.card` had a border-radius and nothing else — it was in the radius rule and was

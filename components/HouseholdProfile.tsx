@@ -124,11 +124,15 @@ export function HouseholdProfile({
           if (latest.current !== initial) void commit(latest.current);
         }}
         placeholder={PLACEHOLDER}
+        /*
+         * No font size: app/globals.css floors every text-entry control at 16px, and an
+         * inline one here would undercut it. This box is somebody typing about their
+         * mother on a phone, and it was the smallest text on the site.
+         */
         style={{
           width: '100%', padding: '.9rem 1rem',
           border: '1px solid var(--line-2)', background: 'var(--surface)',
-          color: 'var(--ink)', font: 'inherit', fontSize: 'var(--step--1)',
-          lineHeight: 1.6, resize: 'vertical',
+          color: 'var(--ink)', lineHeight: 1.6, resize: 'vertical',
         }}
       />
 

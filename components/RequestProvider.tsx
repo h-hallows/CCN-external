@@ -99,14 +99,13 @@ export function RequestProvider({
         maxLength={1000}
         disabled={!available}
         placeholder="Mornings would suit us better, if that is possible."
+        // No font size. The floor in app/globals.css decides it; see components/SaveForm.
         style={{
           width: '100%',
           padding: '.6rem .75rem',
           border: '1px solid var(--line-2)',
           background: 'var(--surface)',
           color: 'var(--ink)',
-          font: 'inherit',
-          fontSize: 'var(--step--1)',
         }}
       />
 

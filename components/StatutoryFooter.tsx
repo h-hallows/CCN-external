@@ -10,12 +10,22 @@
  * It renders LEGAL_NAME, never DISPLAY_NAME: § 1812.533(b)(2) asks for the correct name
  * as filed, not a marketing one.
  *
+ * THE PRIVACY LINK IS HERE AND NOT IN THE NAVIGATION, and it is below both statutory
+ * lines rather than between them. Below, because the two lines above it are reproduced
+ * from the statute and nothing may read as part of them — § 1812.5095(h) is a sentence
+ * the statute writes, not a block a site may extend. In the footer, because the page
+ * that most needs the link is `/refer`, where a discharge planner hands us a third
+ * person's details, and the footer is the one surface `/refer` cannot be served without:
+ * the form components belong elsewhere and a page can be written that forgets a link,
+ * but a page cannot opt out of its own layout. The same reason this footer is here.
+ *
  * Rendered by the (marketing) layout, never by a page, so a page cannot opt out of its
  * own layout. A production DEPLOY missing any part fails to build; a local build or a
  * preview renders a loud placeholder, because the gate is meant to stop the public site
  * shipping rather than to stop work. VERCEL_ENV and not NODE_ENV, since NODE_ENV is
  * 'production' for every build including the one you run to check a bundle size.
  */
+import Link from 'next/link';
 import { brandBlockers, contactLine, usingPlaceholderName } from '@/lib/brand';
 import { isDeliverable, REFERRAL_AGENCY_LINE } from '@/content/statutory';
 
@@ -58,6 +68,9 @@ export function StatutoryFooter() {
           Pre-launch. The name above is a stand-in and this site is not indexed.
         </p>
       ) : null}
+      <p data-privacy-link="true">
+        <Link href="/privacy">What we do with what you tell us</Link>
+      </p>
     </footer>
   );
 }

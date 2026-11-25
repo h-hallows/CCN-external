@@ -116,3 +116,90 @@ export async function feeSchedulesFor(
     });
   });
 }
+
+/**
+ * WHAT THE PUBLIC PAGE MAY SAY ABOUT THE FEE, AND WHY IT PUBLISHES RATHER THAN READS.
+ *
+ * § 1812.527 wants the schedule posted, and /pricing is where a household looks for it.
+ * The schedule above is not available to that page, and the reason is worth writing
+ * down so nobody plumbs it in later believing it was an oversight:
+ *
+ *  - `fee_schedules` has FORCE ROW LEVEL SECURITY and exactly two policies (core
+ *    migration 0004): the operator, and a provider the schedule was recorded as
+ *    delivered to. A public page is neither, so the query returns nothing — not an
+ *    error, nothing, which is the shape of failure that gets shipped.
+ *  - every portal read goes through `asPortalUser`, and tests/portal.test.ts holds the
+ *    list of files allowed to reach `getDb()` directly. Reading the table from here
+ *    would mean adding this file to that list, which is to say stepping around the one
+ *    mechanism that makes the § 4 matrix apply rather than merely exist.
+ *
+ * So the figures a household is quoted are PUBLISHED here — read from configuration,
+ * exactly as the business name is in lib/brand.ts — and not derived from the table.
+ *
+ * WHAT KEEPS A PUBLISHED FIGURE HONEST. A number on a page that has drifted from the
+ * schedule in force is a misleading advertisement under § 1812.533(b)(1), which is the
+ * same reason lib/rates.ts refuses to let a rate be typed into a page. The seven-day
+ * embargo is what makes publishing safe anyway: a schedule cannot take effect sooner
+ * than EMBARGO_DAYS after it is posted, and the CHECK constraint refuses to store one
+ * that would, so whoever maintains these variables always has the notice period in
+ * which to change them. Set them from the schedule in force, inside that window.
+ *
+ * WHY AN UNSET ONE PRINTS A PLACEHOLDER RATHER THAN A PLAUSIBLE NUMBER. Nobody reading
+ * the page can tell an invented percentage from a decided one, and a household that
+ * agrees to a figure we made up has been quoted a price by a deployment default. The
+ * same reasoning as PRELAUNCH_NAME in lib/brand.ts: a stand-in that could be mistaken
+ * for the real thing is worse than a blank that says what is missing.
+ */
+export interface FeeCommitment {
+  /** Stable, and what the page marks the placeholder with. */
+  readonly id: string;
+  /** The variable that fills it. */
+  readonly env: string;
+  /** What a household is being told, said as the page says it. */
+  readonly label: string;
+  /** What has to be supplied. */
+  readonly needs: string;
+  /** Who can decide it. Nobody else may. */
+  readonly who: string;
+  /** The configured value, or null while nobody has supplied one. */
+  readonly value: string | null;
+}
+
+/**
+ * Read as literals rather than through a loop over the names, because Next substitutes
+ * `process.env.NEXT_PUBLIC_*` where it appears in the source and cannot follow an
+ * indexed read. lib/brand.ts reads its own the same way and for the same reason.
+ *
+ * The two are the two columns of the posted schedule a household asks about —
+ * `max_fee_pct` and `payment_terms`. Nothing else from that row belongs on a public
+ * page: the body is written for the nurse it is delivered to, and the posting dates
+ * are the record of an obligation owed to them rather than to a household.
+ */
+export function feeCommitments(): FeeCommitment[] {
+  const filled = (v: string | undefined) => (v && v.trim() ? v.trim() : null);
+  return [
+    {
+      id: 'fee-pct',
+      env: 'NEXT_PUBLIC_FEE_PCT',
+      label: 'What we charge',
+      needs: 'the percentage of the cost of the engagement charged to the household, '
+        + 'as the fee schedule now in force states it',
+      who: 'the operator, from the schedule posted in the console',
+      value: filled(process.env.NEXT_PUBLIC_FEE_PCT),
+    },
+    {
+      id: 'fee-terms',
+      env: 'NEXT_PUBLIC_FEE_TERMS',
+      label: 'When it is invoiced',
+      needs: 'when the fee is invoiced and how it is paid, in the same words as the '
+        + 'payment terms on that schedule',
+      who: 'the operator, from the same posted schedule',
+      value: filled(process.env.NEXT_PUBLIC_FEE_TERMS),
+    },
+  ];
+}
+
+/** The ones nobody has supplied. Each is printed on the page as a marked placeholder. */
+export function unfilledFeeCommitments(): FeeCommitment[] {
+  return feeCommitments().filter((c) => c.value === null);
+}
