@@ -232,21 +232,54 @@ describe('nothing in the source declares a size on a control', () => {
     }
   });
 
-  it('a field is still big enough to hit with a thumb', () => {
-    // 44px is the smallest target that can be aimed at reliably. The floor raised the
-    // text, which raised the box; this is here so that trimming the padding later
-    // cannot quietly take it back under.
-    const [resolved] = styleSources('fieldStyle');
-    expect(resolved, 'fieldStyle could not be resolved, so nothing below is measured')
-      .toBeTruthy();
-    const { body } = resolved!;
-    const padding = /padding:\s*'([^']+)'/.exec(body);
-    expect(padding, 'fieldStyle declares no padding').toBeTruthy();
-    const vertical = lengthPx(padding![1]!.split(/\s+/)[0]!.replace(/^\./, '0.'));
-    expect(vertical, `fieldStyle padding ${padding![1]}`).not.toBeNull();
-    const lineHeight = Number(/lineHeight:\s*([\d.]+)/.exec(body)?.[1] ?? '1.2');
-    const height = 2 * vertical! + 16 * lineHeight + 2;
-    expect(height).toBeGreaterThanOrEqual(44);
+  it('declares a floor on the box, not just on the text', () => {
+    /*
+     * THIS USED TO BE ARITHMETIC, AND THE ARITHMETIC WAS RIGHT ABOUT ONE CONTROL.
+     *
+     * It read `fieldStyle`'s vertical padding and line height, computed
+     * `2 * padding + 16 * lineHeight + 2` — 48 — and asserted that against 44, with a
+     * comment saying it was there so trimming the padding later could not take the
+     * target back under. As a guard on that padding it worked. As a statement about
+     * whether a field can be hit with a thumb it was wrong, and measuring the live site
+     * on a phone is what showed it: at 375px the selects came out at 43.8px and every
+     * `.btn` at 42.3px. A select's box model is not an input's, and a button is a
+     * different style object that sum never looked at — one number, derived from one
+     * object, claimed for every control on the site.
+     *
+     * So the floor is declared in the stylesheet, where a control inherits it, and this
+     * asserts the declaration rather than recomputing it. Same shape as the font floor
+     * directly above: state the rule once, in the place that enforces it.
+     */
+    const declared = /--control-min-target:\s*([^;]+);/.exec(css);
+    expect(declared, 'app/globals.css declares no --control-min-target').toBeTruthy();
+    const px = lengthPx(declared![1]!);
+    expect(px, `--control-min-target is ${declared![1]}`).not.toBeNull();
+    expect(
+      px!,
+      `--control-min-target is ${declared![1]!.trim()}. Below 44px a target cannot be `
+      + 'aimed at reliably, and the people this site is written for are often holding '
+      + 'the phone in one hand in a hospital corridor.',
+    ).toBeGreaterThanOrEqual(44);
+
+    // On the text-entry controls, in the same rule as the font floor...
+    const rule = /input:not\(\[type='checkbox'\]\):not\(\[type='radio'\]\)[^{]*\{([^}]*)\}/
+      .exec(css);
+    expect(rule, 'no rule in app/globals.css floors the controls').toBeTruthy();
+    expect(
+      rule![1],
+      'the control rule declares no min-height, so a select is whatever its engine '
+      + 'makes it — which on a phone was 43.8px',
+    ).toMatch(/min-height:\s*var\(--control-min-target\)/);
+
+    // ...and on the buttons, which are not text-entry controls and were never covered.
+    const btn = /\.btn\s*\{([^}]*)\}/g;
+    const blocks = [...css.matchAll(btn)].map((m) => m[1]!);
+    expect(blocks.length, 'no .btn rule to read').toBeGreaterThan(0);
+    expect(
+      blocks.some((b) => /min-height:\s*var\(--control-min-target\)/.test(b)),
+      '.btn has no min-height, and a button is the thing on the page most likely to be '
+      + 'tapped — the live site served every one of them at 42.3px',
+    ).toBe(true);
   });
 });
 

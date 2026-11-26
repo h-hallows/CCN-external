@@ -92,6 +92,20 @@
   --control-font: var(--step-0);
   --control-font-min: 16px;
 
+  /*
+   * The smallest height a thing you tap may be. 44px is the figure below which a target
+   * cannot be aimed at reliably, and it is a FLOOR on the box rather than a consequence
+   * of the padding — which is the distinction this token exists to hold.
+   *
+   * MEASURED, NOT COMPUTED. tests/controlFontFloor.test.ts worked the height out from
+   * `fieldStyle`'s padding and line height, got 48, and asserted that. It was right
+   * about a text input and silent about everything else: on a phone at 375px the live
+   * site served selects at 43.8px and every `.btn` at 42.3px, because a select's own
+   * box model is not an input's and a button is a different style object the sum never
+   * looked at. One number derived from one object, claimed for every control.
+   */
+  --control-min-target: 44px;
+
   color-scheme: light;
 }
 
@@ -265,6 +279,23 @@ textarea,
 [contenteditable]:not([contenteditable='false']) {
   font-family: inherit;
   font-size: max(var(--control-font-min), var(--control-font)) !important;
+  /*
+   * The floor on the box, beside the floor on the text. A control may be taller; it
+   * cannot be shorter, whatever its padding or its engine's own idea of a select.
+   * Checkboxes and radios are excluded here for the same reason as above — their box is
+   * sized from the font and a 44px tick would change the availability grid for no gain;
+   * they are hit through their labels.
+   */
+  min-height: var(--control-min-target);
+}
+
+/*
+ * And the buttons, which are not text-entry controls and so are outside the rule above,
+ * but are the things on the page most likely to be tapped. `.btn` already centres its
+ * content with flex, so a floor on the box leaves the label where it was.
+ */
+.btn {
+  min-height: var(--control-min-target);
 }
 
 /*
