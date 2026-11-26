@@ -16,9 +16,17 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest): Promise<Response> {
   if (await rateLimit(request, { key: 'apply', max: 5, windowSec: 600 })) return limited();
 
-  const parsed = ProviderApplicationSchema.safeParse(await readBody(request));
+
+  // Raw body, before the schema: see app/api/inquiry/route.ts for why. `z.literal('')`
+  // means a filled honeypot never reaches `parsed.data`, so the check has to happen
+  // against what was actually posted.
+  const body = await readBody(request);
+  if (typeof body.honeypot === 'string' && body.honeypot.trim() !== '') {
+    return silentlyDropped();
+  }
+
+  const parsed = ProviderApplicationSchema.safeParse(body);
   if (!parsed.success) return rejected(parsed.error);
-  if (parsed.data.honeypot) return silentlyDropped();
 
   let reference: string;
   try {

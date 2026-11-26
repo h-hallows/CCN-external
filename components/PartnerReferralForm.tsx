@@ -24,12 +24,19 @@
  * planner guessing which of fourteen fields had been refused.
  */
 import {
-  Confirmation, errorsOf, Field, Group, Honeypot, inputStyle, postIntake, Submit, twoUp,
-  useIntake,
+  Confirmation, errorsOf, Field, Group, groupErrorId, Honeypot, inputStyle, postIntake,
+  Submit, twoUp, useIntake,
 } from '@/components/intakeForm';
 import {
   AREA_OPTIONS, CARE_OPTIONS, PARTNER_ROLE_OPTIONS, PARTNER_URGENCY_OPTIONS,
 } from '@/lib/vocabulary';
+
+/**
+ * Written once because it is both the legend and the root of the error's id. Two copies
+ * of this string is a describedby that stops resolving the day somebody edits the
+ * heading, and nothing would fail — the attribute would simply point at nothing.
+ */
+const CONSENT_GROUP = 'Who we should call';
 
 export interface KnownPartner {
   name: string;
@@ -160,7 +167,13 @@ export function PartnerReferralForm({
         </div>
       </Group>
 
-      <Group legend="Who we should call">
+      {/*
+        * The consent tick is refused on its own, not with the group, so its error goes
+        * through `Group`'s group-level slot and is ALSO pointed at from the checkbox
+        * itself below — it was neither. A planner whose referral came back because the
+        * box was unticked read a red line beside a box that announced nothing.
+        */}
+      <Group legend={CONSENT_GROUP} errors={errors.consentNote}>
         <div style={twoUp}>
           <Field id="contactName" label="Their name" errors={errors.contactName}>
             <input id="contactName" name="contactName" required maxLength={120}
@@ -183,16 +196,15 @@ export function PartnerReferralForm({
           display: 'flex', alignItems: 'flex-start', gap: '.5rem',
           marginTop: '1.1rem', fontSize: 'var(--step--1)',
         }}>
-          <input type="checkbox" name="consentNote" required style={{ marginTop: '.2rem' }} />
+          <input
+            type="checkbox" name="consentNote" required style={{ marginTop: '.2rem' }}
+            aria-describedby={errors.consentNote ? groupErrorId(CONSENT_GROUP) : undefined}
+            {...(errors.consentNote ? { 'aria-invalid': true } : {})}
+          />
           <span>
             The family have agreed I can pass their contact details to you.
           </span>
         </label>
-        {errors.consentNote ? (
-          <p style={{ margin: '.35rem 0 0', fontSize: 'var(--step--1)', color: 'var(--crit)' }}>
-            {errors.consentNote.join('. ')}
-          </p>
-        ) : null}
       </Group>
 
       <Honeypot />

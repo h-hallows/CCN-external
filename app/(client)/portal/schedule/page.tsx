@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getPortalSession } from '@/lib/session';
 import { BLOCKS, BLOCK_LABEL, DAYS, byDay, caseSchedules } from '@/lib/schedule';
-import { Prose, Section, Stack } from '@/components/layout';
+import { Prose, Scroller, Section, Stack } from '@/components/layout';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,7 +48,8 @@ export default async function Schedule() {
               * and what the provider said they are open to, and an operator arranges
               * cover by telephone. Generating it would be work direction — I2.
               */}
-            <div className="scroller" style={{ marginTop: '1.25rem' }}>
+            <div style={{ marginTop: '1.25rem' }}>
+            <Scroller label="The week, by day and shift">
               <table style={{ minWidth: '34rem' }}>
                 <thead>
                   <tr>
@@ -71,6 +72,7 @@ export default async function Schedule() {
                   ))}
                 </tbody>
               </table>
+            </Scroller>
             </div>
 
             <Prose>

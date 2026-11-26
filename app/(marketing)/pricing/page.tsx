@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { publicMetadata } from '@/lib/brand';
-import { Prose, Section, Stack } from '@/components/layout';
+import { Prose, Scroller, Section, Stack } from '@/components/layout';
 import {
   CREDENTIAL_LABEL, CREDENTIAL_ORDER, formatRange, rateState, type RateRange,
 } from '@/lib/rates';
@@ -118,7 +118,17 @@ export default async function Pricing() {
           </Prose>
         ) : (
           <>
-            <div className="scroller">
+            {/*
+              * `Scroller` and not a bare `.scroller` div. At 320px this table is 666px
+              * wide, which is right — the page itself must never scroll sideways, so the
+              * table scrolls inside its own box. But a div with `overflow-x: auto` is not
+              * focusable, so the four credential columns past the right-hand edge were
+              * unreachable from a keyboard: the rates § 1812.527 is about, on a phone,
+              * with no way to get at them. The component adds the tab stop, the role and
+              * the name together, because a focusable region that announces nothing is
+              * the next defect along.
+              */}
+            <Scroller label="Hourly rate ranges by care type and credential level">
               <table className="nums">
                 <thead>
                   <tr>
@@ -149,7 +159,7 @@ export default async function Pricing() {
                   })}
                 </tbody>
               </table>
-            </div>
+            </Scroller>
             <p className="label" style={{ marginTop: '1rem' }}>{RATE_TABLE_CAPTION}</p>
           </>
         )}

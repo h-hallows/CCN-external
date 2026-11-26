@@ -17,9 +17,43 @@
   --surface-2:   #F3EFEA;
   --ink:         #1A1715;
   --ink-2:       #55504A;
-  --ink-3:       #847D75;
+  /*
+   * THE THIRD INK IS READ BY PEOPLE, SO IT CLEARS 4.5:1.
+   *
+   * This was #847D75, which measures 3.86:1 on --paper, 4.06 on --surface and 3.55 on
+   * --surface-2 — under the 4.5:1 that WCAG AA asks of body text in all three places.
+   * It would be a quiet fault if it were only decoration, and it is not: `.label` is
+   * --ink-3, and `.label` is what every field's visible label on every public form is
+   * set in. So the enquiry form — the door the business runs on — printed "Your phone"
+   * and "Your name" at 3.9:1, in 13px uppercase with letter-spacing, to a readership a
+   * material share of whom are older than the people who chose the colour. Every form
+   * hint, every table header and every "reviewed on" line was the same.
+   *
+   * #6E675F measures 5.30 / 5.57 / 4.87 against the three light backgrounds and 4.69
+   * against --accent-soft, which is the fourth thing it is ever set on (the primary
+   * door card). It is still plainly the third step of the ramp: relative luminance
+   * .009 → .082 → .138, so the hierarchy the design wanted survives the fix.
+   *
+   * tests/accessibility.test.ts measures this rather than trusting it, and measures it
+   * for the portal override below as well — a token fixed in one theme and left in the
+   * other is half a fix.
+   */
+  --ink-3:       #6E675F;
   --line:        #E2DCD4;
   --line-2:      #C9C1B7;
+  /*
+   * THE EDGE OF A CONTROL IS NOT A HAIRLINE. § 1.4.11 wants 3:1 of anything you need to
+   * see in order to find a control, and a text field here is a white box on warm white
+   * paper — the border is the entire reason a reader can tell there is a box at all.
+   * It was --line-2, which is 1.78:1 on --surface: a field with no visible edge, on a
+   * phone, in a corridor.
+   *
+   * Separate from --line-2 on purpose. --line and --line-2 rule off a card or a table
+   * row, where a hairline is the right weight and no contrast minimum applies; this is
+   * the one that has to be found. 3.79 / 3.60 / 3.31 against surface, paper and
+   * surface-2.
+   */
+  --control-border: #8A8278;
   --accent:      #6B2733;   /* oxblood */
   --accent-2:    #8A3845;
   --accent-soft: #F4E9EA;
@@ -71,9 +105,15 @@
   --surface-2:   #241F1B;
   --ink:         #EDE8E2;
   --ink-2:       #B7AFA6;
-  --ink-3:       #8A8178;
+  /* 4.88 / 4.61 / 4.27 against the three portal backgrounds — the last one under AA.
+   * Raised with the light one rather than after somebody notices, because the same
+   * `.label` rule sets every field label on the provider screens too. 5.43 / 5.13 /
+   * 4.75, and 4.64 on --accent-soft. */
+  --ink-3:       #92897F;
   --line:        #332C26;
   --line-2:      #463D35;
+  /* The same 3:1 rule, measured against the dark backgrounds: 3.83 / 3.62 / 3.35. */
+  --control-border: #787066;
   --accent:      #C98792;
   --accent-2:    #D79DA6;
   --accent-soft: #2A1F21;
@@ -112,6 +152,78 @@ p { margin: 0 0 1em; }
 
 a { color: var(--accent); text-underline-offset: .18em; }
 a:hover { color: var(--accent-2); }
+
+/*
+ * THE FOCUS RING. One declaration, for everything that can be focused, in both themes.
+ *
+ * WHAT WAS WRONG. Nothing had removed the ring — there is no `outline: none` anywhere in
+ * this repository and tests/accessibility.test.ts now keeps it that way — but nothing
+ * had declared one either, so every focused control wore whatever the engine happened to
+ * draw. On the two elements that carry their own background that is not good enough:
+ * `.btn-primary` is oxblood and `.cta-card.is-primary` is --accent-soft, and a UA ring
+ * drawn tight against a filled button is the case where "visible" quietly stops being
+ * true. A keyboard user who cannot see where they are is as stuck as one who cannot tab.
+ *
+ * WHY --ink AND AN OFFSET, rather than --accent. The ring has to contrast with whatever
+ * is behind the element it rings, and --accent is itself the background of the primary
+ * button, so an accent ring on that button is invisible exactly where it matters most.
+ * --ink against --paper is 16.97:1 in the light theme and the inversion holds it in the
+ * portal, and the 2px offset puts the page's own colour between the ring and any fill —
+ * so the same two lines work on a white field, on an oxblood button and on a dark
+ * portal screen without a per-element exception.
+ *
+ * :focus-visible and not :focus, so a mouse click on a card does not leave a ring
+ * behind it; the :focus fallback below is for engines that do not know the newer
+ * selector, where showing the ring too often is the right way to be wrong.
+ */
+:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+@supports not selector(:focus-visible) {
+  :focus { outline: 3px solid var(--ink); outline-offset: 2px; }
+}
+
+/*
+ * THE SKIP LINK. § 2.4.1: a way past the header without tabbing through it.
+ *
+ * There was none. Every marketing page opens with the wordmark, five navigation links
+ * and two header actions, so somebody on a keyboard or a switch reached the enquiry
+ * form's first field on the ninth tab, on every page, every time — and the readership
+ * this site is written for includes people who are doing that one press at a time.
+ *
+ * Visible when focused and not before, which is the whole point: it is the first thing
+ * in the tab order and nothing on the page until it is reached. It is NOT built out of
+ * `.visually-hidden`, because clip-path cannot be undone on focus without repeating
+ * every one of its declarations in reverse; a translate out of the top of the viewport
+ * comes back with one line. `components/layout.tsx` holds the markup and the id it
+ * points at, so a page cannot have the link without the landmark.
+ */
+.skip-link {
+  position: fixed;
+  top: 0;
+  left: var(--gutter);
+  z-index: 100;
+  padding: .7rem 1.1rem;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--control-border);
+  border-top: 0;
+  border-radius: 0 0 6px 6px;
+  text-decoration: none;
+  transform: translateY(-110%);
+}
+.skip-link:focus { transform: translateY(0); color: var(--ink); }
+
+/*
+ * A main landmark is a scroll target, never a tab stop. `tabIndex={-1}` is what makes
+ * the skip link actually move focus in WebKit — without it Safari scrolls the page and
+ * leaves focus on the link, so the next Tab goes back into the navigation the reader
+ * just asked to skip — and the ring on a region the size of the page is noise, so the
+ * one thing that does get its outline removed is the one thing that was never focusable
+ * to begin with. tests/accessibility.test.ts allows this selector and nothing else.
+ */
+main[tabindex='-1']:focus { outline: none; }
 
 /* Uppercase labels get the tracking that makes them legible at small sizes. */
 .label {
@@ -325,7 +437,8 @@ textarea,
   align-items: center;
   gap: .5rem;
   padding: .6rem 1.1rem;
-  border: 1px solid var(--line-2);
+  /* A control, so its edge is the one that has to clear 3:1. See --control-border. */
+  border: 1px solid var(--control-border);
   background: var(--surface);
   color: var(--ink);
   font: inherit;
@@ -333,7 +446,7 @@ textarea,
   cursor: pointer;
   text-decoration: none;
 }
-.btn:hover { border-color: var(--ink-3); }
+.btn:hover { border-color: var(--ink-2); }
 .btn-primary { background: var(--accent); border-color: var(--accent); color: var(--paper); }
 .btn-primary:hover { background: var(--accent-2); border-color: var(--accent-2); color: var(--paper); }
 

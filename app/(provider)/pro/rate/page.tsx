@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getPortalSession } from '@/lib/session';
 import { RATE_NOTES_MAX, providerSelf } from '@/lib/pro';
+import { NO_FEE_TO_YOU } from '@/lib/proState';
 import { SaveForm, fieldStyle } from '@/components/SaveForm';
 import { updateRate } from '../actions';
 import { Prose, Section, Stack } from '@/components/layout';
@@ -27,9 +28,9 @@ export default async function ProRate() {
         <Prose>
           <p>
             You set this, and it stays negotiable with the household. We do not set it,
-            cap it, suggest it or take a share of it — our fee is charged to the
-            household as a percentage of the job and never comes out of your hours.
+            cap it, suggest it or take a share of it.
           </p>
+          <p>{NO_FEE_TO_YOU}</p>
           <p style={{ fontSize: 'var(--step--1)', color: 'var(--ink-3)' }}>
             Leave it empty if you would rather talk about it. That is a normal answer
             and we will say so when we put you forward.

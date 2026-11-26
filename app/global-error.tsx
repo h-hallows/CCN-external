@@ -1,6 +1,7 @@
 'use client';
 
 import './globals.css';
+import { Main } from '@/components/layout';
 
 /**
  * The last resort: what is served when the ROOT layout itself throws.
@@ -23,6 +24,13 @@ import './globals.css';
  * It renders its own `html` and `body` because it replaces the root layout rather than
  * rendering inside it, and the stylesheet is imported for the same reason — without it
  * this is the bare page the defect was about.
+ *
+ * `Main` IS THE ONE IMPORT, and it does not contradict the paragraph above.
+ * components/layout.tsx reads no environment variable, no brand state and no database;
+ * its header says so and tests/boundaryPages.test.ts asserts it, because a fallback that
+ * imports the thing most likely to have failed is not a fallback. What it buys is the
+ * landmark: without a `<main>` every word on this page is outside every landmark, and
+ * this is the page somebody reaches when the application has nothing else left.
  */
 export default function GlobalError({ reset }: {
   error: Error & { digest?: string };
@@ -31,26 +39,28 @@ export default function GlobalError({ reset }: {
   return (
     <html lang="en-US">
       <body>
-        <div className="wrap" style={{ maxWidth: '34rem', paddingBlock: '5rem' }}>
-          <h1 style={{ fontSize: 'var(--step-2)' }}>This did not load</h1>
-          <p style={{ color: 'var(--ink-2)' }}>
-            Something stopped before the page could be built. Trying again sometimes
-            clears it.
-          </p>
-          <p>
-            <button type="button" onClick={reset} className="btn btn-primary">
-              Try again
-            </button>
-          </p>
-          {/*
-            * A plain anchor, not next/link. The app shell is what failed; a full
-            * request for the home page is the thing most likely to work, and it is the
-            * one address that cannot be wrong.
-            */}
-          <p>
-            <a href="/">Back to the beginning</a>
-          </p>
-        </div>
+        <Main>
+          <div className="wrap" style={{ maxWidth: '34rem', paddingBlock: '5rem' }}>
+            <h1 style={{ fontSize: 'var(--step-2)' }}>This did not load</h1>
+            <p style={{ color: 'var(--ink-2)' }}>
+              Something stopped before the page could be built. Trying again sometimes
+              clears it.
+            </p>
+            <p>
+              <button type="button" onClick={reset} className="btn btn-primary">
+                Try again
+              </button>
+            </p>
+            {/*
+              * A plain anchor, not next/link. The app shell is what failed; a full
+              * request for the home page is the thing most likely to work, and it is the
+              * one address that cannot be wrong.
+              */}
+            <p>
+              <a href="/">Back to the beginning</a>
+            </p>
+          </div>
+        </Main>
       </body>
     </html>
   );

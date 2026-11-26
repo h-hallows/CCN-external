@@ -123,9 +123,20 @@ describe('§ 11 — the honeypot is silent', () => {
     const before = await count('inquiries');
     const res = await inquiryRoute(
       post({ ...VALID_INQUIRY, honeypot: 'bot' }, '10.0.0.1') as never);
-    // Zod rejects a non-empty honeypot before the route sees it, which is the same
-    // outcome by a different route: nothing is written and nothing is confirmed.
-    expect([202, 400]).toContain(res.status);
+    /*
+     * 202 EXACTLY, AND THIS USED TO ACCEPT EITHER.
+     *
+     * It read `expect([202, 400]).toContain(res.status)` with a comment calling the two
+     * "the same outcome by a different route", on the grounds that nothing is written
+     * either way. Nothing written was true. The rest was not: the schema makes
+     * `honeypot` a `z.literal('')`, so a filled one was refused at parse time and the
+     * 400 body came back naming the field —
+     * `"honeypot":["Invalid literal value, expected \"\""]` — telling the one caller
+     * the trap exists to catch exactly where it is. `silentlyDropped()` was unreachable
+     * from every route in the application, and this assertion was green for both the
+     * working case and the broken one.
+     */
+    expect(res.status).toBe(202);
     expect(await count('inquiries')).toBe(before);
   });
 

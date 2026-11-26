@@ -5,6 +5,7 @@ import { getPortalSession } from '@/lib/session';
 import { providerSelf } from '@/lib/pro';
 import { feeSchedulesFor, hasFeeSchedule } from '@/lib/feeSchedule';
 import { filedDocuments, filedLabel } from '@/lib/documents';
+import { NO_FEE_TO_YOU } from '@/lib/proState';
 import { Prose, Section, Stack } from '@/components/layout';
 
 export const dynamic = 'force-dynamic';
@@ -138,6 +139,7 @@ export default async function ProDocuments() {
                 </>
               )}
             </p>
+            <p>{NO_FEE_TO_YOU}</p>
             <p>
               <Link href="/pro/fee-schedule">See every version in full</Link>.
             </p>

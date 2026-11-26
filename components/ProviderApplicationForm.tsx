@@ -148,17 +148,20 @@ export function ProviderApplicationForm() {
         ) : null}
       </Group>
 
+      {/*
+        * The group-level refusals go through `Group` rather than being printed here.
+        * They were a red paragraph above each grid with no `id`, no `aria-describedby`
+        * and nothing pointing at them: a rejection a sighted reader saw and nobody else
+        * did. The thing that is invalid is the set of boxes, not any box, so the
+        * association belongs on the fieldset — see components/intakeForm.tsx.
+        */}
       <Group
         legend="Where you work"
         hint="Tick everywhere you would genuinely travel to. Nothing here commits you to
           anything — you decide case by case, and declining costs you nothing."
+        errors={errors.areas}
       >
         <div style={{ marginTop: '.6rem' }}>
-          {errors.areas ? (
-            <p style={{ margin: '0 0 .4rem', fontSize: 'var(--step--1)', color: 'var(--crit)' }}>
-              {errors.areas.join('. ')}
-            </p>
-          ) : null}
           <div style={checkRow}>
             {AREA_OPTIONS.map((a) => (
               <Check key={a.value} name="areas" value={a.label} label={a.label} />
@@ -167,13 +170,8 @@ export function ProviderApplicationForm() {
         </div>
       </Group>
 
-      <Group legend="What you speak">
+      <Group legend="What you speak" errors={errors.languages}>
         <div style={{ marginTop: '.6rem' }}>
-          {errors.languages ? (
-            <p style={{ margin: '0 0 .4rem', fontSize: 'var(--step--1)', color: 'var(--crit)' }}>
-              {errors.languages.join('. ')}
-            </p>
-          ) : null}
           <div style={checkRow}>
             {LANGUAGE_OPTIONS.map((l) => (
               <Check key={l} name="languages" value={l} label={l} />

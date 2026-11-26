@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getPortalSession } from '@/lib/session';
 import { asPortalUser } from '@/lib/portalDb';
+import { databaseAvailable } from '@/lib/availability';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,6 +22,26 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ documentId: string }> },
 ) {
+  /*
+   * Asked before the session is read, because reading the session is already a query.
+   *
+   * Every other authenticated surface checks this and this one did not, so with no
+   * DATABASE_URL — the state of the deployment as it stands — a signed-in visitor
+   * clicking a letter on /portal/documents got a 500 and a stack-trace-shaped error
+   * page, while the screen that linked it said "temporarily unavailable" politely.
+   * The three-file list in tests/marketing.test.ts did not cover this route;
+   * tests/portalDoors.test.ts now enumerates them off disk instead.
+   *
+   * 503 rather than the Unavailable component: this route answers with a file, and a
+   * page of HTML handed to something expecting a PDF is its own small lie.
+   */
+  if (!(await databaseAvailable()).ok) {
+    return NextResponse.json(
+      { error: 'Temporarily unavailable. Please call us and we will send it to you.' },
+      { status: 503, headers: { 'cache-control': 'no-store' } },
+    );
+  }
+
   const session = await getPortalSession();
   if (!session) return NextResponse.json({ error: 'Not signed in.' }, { status: 401 });
 

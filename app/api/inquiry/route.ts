@@ -11,9 +11,33 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest): Promise<Response> {
   if (await rateLimit(request, { key: 'inquiry', max: 5, windowSec: 600 })) return limited();
 
-  const parsed = InquirySchema.safeParse(await readBody(request));
+
+  /*
+   * THE HONEYPOT IS CHECKED AGAINST THE RAW BODY, BEFORE THE SCHEMA.
+   *
+   * It was checked after, as `parsed.data.honeypot`, and the field's type is
+   * `z.literal('').optional()` — so the only values that ever reach `parsed.data` are
+   * `''` and `undefined`, both falsy. `silentlyDropped()` could not be reached from
+   * any route in the application. It was present, correct, documented, asserted in
+   * tests/intakeResponse.test.ts, green, and dead.
+   *
+   * What a bot got instead was a 400 whose `fieldErrors` are keyed by field name — so
+   * the response named `honeypot` to the one caller the field exists to catch, which
+   * is precisely what the comment on `silentlyDropped` says must not happen: telling a
+   * bot it was detected teaches whoever wrote it to stop filling the field.
+   *
+   * The schema is not the place to fix it — `lib/schemas/intake.ts` is `.strict()` on
+   * purpose and a looser honeypot field would be a hole in that posture. So the raw
+   * body answers the question first, and the strict schema still refuses everything
+   * else.
+   */
+  const body = await readBody(request);
+  if (typeof body.honeypot === 'string' && body.honeypot.trim() !== '') {
+    return silentlyDropped();
+  }
+
+  const parsed = InquirySchema.safeParse(body);
   if (!parsed.success) return rejected(parsed.error);
-  if (parsed.data.honeypot) return silentlyDropped();
 
   let reference: string;
   try {

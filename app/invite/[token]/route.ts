@@ -11,11 +11,27 @@ import type { NextRequest } from 'next/server';
 import { getDb } from '@h-hallows/core/db';
 import { getPortalSession, hashToken, startSession } from '@/lib/session';
 import { databaseAvailable } from '@/lib/availability';
+import { rateLimit } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * Generous, because the thing being protected is not the token.
+ *
+ * A token is 32 bytes from `randomBytes`, so guessing one is not a threat anybody needs
+ * a counter to stop. What a counter stops is the OTHER shape: this is the one
+ * unauthenticated route in the application that writes — `users`, `household_users`,
+ * `provider_users`, `partner_users`, `sessions` — and it was reachable without limit of
+ * any kind while `/login`, `/api/inquiry`, `/api/refer` and `/api/apply` all have one.
+ *
+ * Twenty in ten minutes is well above a family forwarding a link round and opening it
+ * on a phone and a laptop, and far below anything worth calling traffic. A hospital's
+ * discharge desk shares one address, which is why it is not five.
+ */
+const ATTEMPTS = { key: 'invite', max: 20, windowSec: 600 } as const;
+
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ token: string }> },
 ): Promise<void> {
   const { token } = await params;
@@ -23,6 +39,17 @@ export async function GET(
   // An invite link that 500s looks like a broken invite. Send them somewhere that
   // explains itself, and leave the invite unconsumed so the link still works later.
   if (!(await databaseAvailable()).ok) redirect('/login');
+
+  /*
+   * Before the token is looked at, and ANSWERED DIFFERENTLY from a bad token.
+   *
+   * `error=invite` means "that link is no longer valid", which is a thing to say about
+   * a token. Saying it to somebody whose only problem is that they clicked twice too
+   * often would send a person with a perfectly good link away believing it was dead.
+   * The limit is a fact about the caller, so it is reported as one — and the invite is
+   * untouched either way, because this returns before the claim.
+   */
+  if (await rateLimit(request, ATTEMPTS)) redirect('/login?error=too-many');
 
   /*
    * Refuse to swap an existing session for a different person.

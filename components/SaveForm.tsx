@@ -12,10 +12,22 @@ import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { PRO_IDLE, type ProFormState } from '@/lib/proState';
 
+/**
+ * `aria-disabled` and not `disabled`, for the reason components/intakeForm.tsx's `Submit`
+ * records: disabling the element that currently holds focus throws focus to the top of
+ * the document, so a keyboard user pressed Save and lost their place on the screen while
+ * waiting to learn whether it had worked. The click guard is what actually refuses the
+ * second press — `.btn[aria-disabled="true"]` in app/globals.css already dims it.
+ */
 function Submit({ label }: { label: string }) {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" className="btn btn-primary" disabled={pending}>
+    <button
+      type="submit"
+      className="btn btn-primary"
+      aria-disabled={pending}
+      onClick={(event) => { if (pending) event.preventDefault(); }}
+    >
       {pending ? 'Saving…' : label}
     </button>
   );
@@ -76,11 +88,18 @@ export function SaveForm({
  *
  * The padding is left as it was: at the floored size a field stands 48px tall, which
  * clears the 44px minimum for something aimed at with a thumb.
+ *
+ * THE BORDER IS --control-border AND NOT --line-2. A field here is a white box on warm
+ * white paper, so the border is the only thing that says there is a box: --line-2
+ * measures 1.78:1 against --surface, under the 3:1 § 1.4.11 asks of anything you have to
+ * see to find a control. --line and --line-2 still rule off cards and table rows, where
+ * a hairline is right and no minimum applies; app/globals.css keeps the two tokens
+ * apart and tests/accessibility.test.ts measures both.
  */
 export const fieldStyle: React.CSSProperties = {
   width: '100%',
   padding: '.65rem .8rem',
-  border: '1px solid var(--line-2)',
+  border: '1px solid var(--control-border)',
   background: 'var(--surface)',
   color: 'var(--ink)',
   lineHeight: 1.6,

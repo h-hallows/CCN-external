@@ -341,14 +341,34 @@ describe('the marketing site deploys without a database', () => {
 });
 
 describe('the site stays up when the database does not', () => {
-  const guarded = [
-    ['app/login/page.tsx', 'signing in'],
-    ['app/(client)/layout.tsx', 'the client portal'],
-    ['app/invite/[token]/route.ts', 'an invite link'],
-  ] as const;
-
-  it.each(guarded)('%s checks the database before using it', (file) => {
-    expect(read(join(ROOT, file))).toContain('databaseAvailable');
+  /*
+   * ONE FILE, NOT THREE, AND THE REASON IS WHAT THIS LIST GOT WRONG.
+   *
+   * It named `app/login/page.tsx`, `app/(client)/layout.tsx` and
+   * `app/invite/[token]/route.ts`, and a hardcoded list of surfaces is a list of the
+   * surfaces somebody thought of. It silently exempted the provider layout, the partner
+   * layout and `app/portal-file/[documentId]/route.ts` — and that last one really was
+   * unguarded: with no DATABASE_URL, which is the state of the deployment today, a
+   * signed-in visitor clicking a letter on /portal/documents got an unhandled throw and
+   * a 500, while the page that linked it said "temporarily unavailable" politely.
+   *
+   * `tests/portalDoors.test.ts` now enumerates those surfaces off disk and asserts a
+   * CALL to `databaseAvailable` somewhere in each layout chain, plus that each refuses
+   * rather than throws with `getDb` mocked to throw. So the two portal entries here are
+   * redundant and are gone.
+   *
+   * `app/login/page.tsx` stays, because that walk deliberately excludes it: login is the
+   * door and must serve somebody with no session, so it is not in the portal trees and
+   * nothing else would cover it. Removing this case wholesale — which is what the first
+   * reading of that supersession suggested — would have dropped the sign-in page's only
+   * assertion on the way to deleting two that had become duplicates.
+   *
+   * A CALL, not the import, for the reason portalDoors found by sabotage: deleting the
+   * two lines that use it leaves the import behind, and a scan for the bare name stays
+   * green on exactly that edit.
+   */
+  it('the sign-in page checks the database before using it', () => {
+    expect(read(join(ROOT, 'app/login/page.tsx'))).toMatch(/databaseAvailable\s*\(/);
   });
 
   it('shows something a visitor can act on rather than a 500', () => {

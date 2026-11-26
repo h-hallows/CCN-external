@@ -3,7 +3,7 @@ import { getPortalSession } from '@/lib/session';
 import { BLOCKS, BLOCK_LABEL, DAYS, providerSelf } from '@/lib/pro';
 import { SaveForm } from '@/components/SaveForm';
 import { updateAvailability } from '../actions';
-import { Prose, Section, Stack } from '@/components/layout';
+import { Prose, Scroller, Section, Stack } from '@/components/layout';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,7 +35,7 @@ export default async function ProAvailability() {
             label="Save availability"
             footnote="An empty week is a perfectly good answer and saves like any other."
           >
-            <div className="scroller">
+            <Scroller label="When you work, by day and shift">
               <table style={{ minWidth: '32rem' }}>
                 <thead>
                   <tr>
@@ -67,7 +67,7 @@ export default async function ProAvailability() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </Scroller>
           </SaveForm>
         </div>
       </Section>

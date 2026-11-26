@@ -4,7 +4,7 @@ import { getPortalSession } from '@/lib/session';
 import { credentialStanding } from '@/lib/pro';
 import { SaveForm, fieldStyle } from '@/components/SaveForm';
 import { handInCredential } from '../actions';
-import { Prose, Section, Stack } from '@/components/layout';
+import { Prose, Scroller, Section, Stack } from '@/components/layout';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,7 +45,7 @@ export default async function ProCredentials() {
 
         <div style={{ marginTop: '1.5rem' }}>
           <h2 style={{ fontSize: 'var(--step-0)' }}>What your work needs</h2>
-          <div className="scroller">
+          <Scroller label="What your work needs">
             <table>
               <thead>
                 <tr>
@@ -80,12 +80,12 @@ export default async function ProCredentials() {
                 ))}
               </tbody>
             </table>
-          </div>
+          </Scroller>
 
           {other.length > 0 ? (
             <div style={{ marginTop: '1.5rem' }}>
               <h2 style={{ fontSize: 'var(--step-0)' }}>Also on file</h2>
-              <div className="scroller">
+              <Scroller label="Also on file">
                 <table>
                   <tbody>
                     {other.map((c) => (
@@ -97,7 +97,7 @@ export default async function ProCredentials() {
                     ))}
                   </tbody>
                 </table>
-              </div>
+              </Scroller>
             </div>
           ) : null}
         </div>

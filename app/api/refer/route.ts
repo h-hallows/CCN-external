@@ -47,9 +47,17 @@ async function signedInPartner(): Promise<PortalSession | null> {
 export async function POST(request: NextRequest): Promise<Response> {
   if (await rateLimit(request, { key: 'refer', max: 10, windowSec: 600 })) return limited();
 
-  const parsed = PartnerReferralSchema.safeParse(await readBody(request));
+
+  // Raw body, before the schema: see app/api/inquiry/route.ts for why. `z.literal('')`
+  // means a filled honeypot never reaches `parsed.data`, so the check has to happen
+  // against what was actually posted.
+  const body = await readBody(request);
+  if (typeof body.honeypot === 'string' && body.honeypot.trim() !== '') {
+    return silentlyDropped();
+  }
+
+  const parsed = PartnerReferralSchema.safeParse(body);
   if (!parsed.success) return rejected(parsed.error);
-  if (parsed.data.honeypot) return silentlyDropped();
 
   /*
    * If a partner is signed in, the referral is theirs and the portal will show it.

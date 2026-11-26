@@ -10,7 +10,7 @@
  * calling Supabase's auth.jwt() directly: the authority that issues a claim is
  * swappable, and nothing in the database layer changes when it is swapped.
  */
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { cache } from 'react';
 import { cookies } from 'next/headers';
 import { getDb } from '@h-hallows/core/db';
@@ -38,12 +38,26 @@ export function newToken(): string {
   return randomBytes(32).toString('base64url');
 }
 
-/** Constant-time compare, so a near-miss token cannot be found by timing. */
-export function tokensMatch(a: string, b: string): boolean {
-  const x = Buffer.from(a);
-  const y = Buffer.from(b);
-  return x.length === y.length && timingSafeEqual(x, y);
-}
+/*
+ * `tokensMatch` USED TO BE HERE, AND IS GONE.
+ *
+ * It was an exported constant-time compare that nothing in the application, and
+ * nothing in the suite, ever called. Every token comparison in this file and in
+ * `app/invite/[token]` is SQL equality on a SHA-256 hash — `WHERE token_hash = $1` —
+ * which is the standard pattern: the compared values are digests, so what a timing
+ * difference between two of them reveals is nothing about either preimage.
+ *
+ * A previous pass judged it misleading rather than exploitable and left it. That
+ * judgement was right about the risk and the thing was still worth removing, because
+ * what a dead exported helper does is get imported. It sat in the module a reader goes
+ * to when they want to know how a token is checked, named as though it were the
+ * answer, and it was not even correct as written: the `x.length === y.length &&`
+ * short-circuit in front of `timingSafeEqual` is itself a timing branch, so the one
+ * property its name promises was the one property it did not have.
+ *
+ * tests/sessionShape.test.ts asserts the absence as a rule: no bespoke token
+ * comparison in this module, and the lookup stays an equality on a hash.
+ */
 
 /**
  * The claims this session carries into the database. Shape matches what
@@ -60,6 +74,28 @@ export function claimsFor(session: PortalSession): Record<string, string> {
   return claims;
 }
 
+/*
+ * WHY THE IDENTITY QUERY BELOW ORDERS ITS MEMBERSHIP JOINS.
+ *
+ * `household_users` is keyed on (user_id, household_id) and `partner_users` on
+ * (user_id, partner_id) — both MANY-TO-ONE on the user, deliberately: a daughter
+ * arranging care for two parents in separate households is the ordinary case, and so
+ * is a discharge planner who moved hospital. Those LEFT JOINs therefore produce one
+ * row per membership, and `LIMIT 1` keeps one of them.
+ *
+ * Without an ORDER BY, WHICH one is whatever the planner hands back, and that is free
+ * to differ between two renders of the same page. So a household with two cases could
+ * see one parent's short list on one request and the other parent's on the next, with
+ * nothing on the screen saying which.
+ *
+ * The ORDER BY makes the choice stable. It does not make it RIGHT: the session can
+ * still only carry one subject per role, because `current_household()` returns a
+ * single uuid and the § 4 policies compare against it. Carrying a set needs that
+ * function and those policies to take one, which is a core migration and not this
+ * repository's to write. Reported rather than worked around — widening what a
+ * household sees from a WHERE clause here would be stepping around the policies
+ * instead of fixing them.
+ */
 /**
  * The current session, or null.
  *
@@ -92,6 +128,8 @@ export const getPortalSession = cache(async (): Promise<PortalSession | null> =>
        LEFT JOIN provider_users pu ON pu.user_id = u.id
        LEFT JOIN partner_users ru ON ru.user_id = u.id
       WHERE s.token_hash = $1 AND s.expires_at > now()
+      -- ORDER BY: see the note above. Deterministic, not correct.
+      ORDER BY hu.household_id, pu.provider_id, ru.partner_id
       LIMIT 1`,
     [hashToken(token)],
   );

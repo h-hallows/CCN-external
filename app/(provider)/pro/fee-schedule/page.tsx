@@ -2,7 +2,8 @@ import { redirect } from 'next/navigation';
 import { getPortalSession } from '@/lib/session';
 import { providerSelf } from '@/lib/pro';
 import { EMBARGO_DAYS, feeSchedulesFor, hasFeeSchedule } from '@/lib/feeSchedule';
-import { Prose, Section, Stack } from '@/components/layout';
+import { NO_FEE_TO_YOU } from '@/lib/proState';
+import { Prose, Scroller, Section, Stack } from '@/components/layout';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,9 +25,7 @@ export default async function ProFeeSchedule() {
             does not apply to your work.
           </p>
           <p style={{ fontSize: 'var(--step--1)', color: 'var(--ink-3)' }}>
-            Our fee is charged to the household as a percentage of the job. Nothing is
-            ever deducted from what you are paid, and there is no charge to you of any
-            kind for being referred.
+            {NO_FEE_TO_YOU}
           </p>
         </Prose>
       </Section>
@@ -49,6 +48,16 @@ export default async function ProFeeSchedule() {
     <Stack gap="lg">
       <Section title="Fee schedule" as="h1">
         <Prose>
+          {/*
+            * WHO PAYS IT, FIRST, and above the figure rather than under it.
+            *
+            * Everything below this is a percentage and a set of payment terms, and a
+            * percentage on a screen headed "Your fee schedule" reads as the reader's
+            * own unless something says otherwise. § 1812.530 — the registry may not
+            * charge the nurse — is the thing that says otherwise, so it goes before
+            * the number and not in a footnote after it.
+            */}
+          <p>{NO_FEE_TO_YOU}</p>
           <p>
             The law requires us to post this at least {EMBARGO_DAYS} days before it
             takes effect, so the terms cannot change under you partway through
@@ -134,7 +143,7 @@ export default async function ProFeeSchedule() {
                 yours.
               </p>
             </Prose>
-            <div className="scroller">
+            <Scroller label="Fee schedules you have been given">
               <table>
                 <thead>
                   <tr>
@@ -155,7 +164,7 @@ export default async function ProFeeSchedule() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </Scroller>
           </div>
         ) : null}
       </Section>

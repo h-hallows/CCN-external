@@ -63,7 +63,19 @@ export function rejected(error: ZodError): Response {
   };
 
   if (formErrors.length > 0) {
-    // Key names only — a ZodError's object-level text never quotes a submitted value.
+    /*
+     * Key names only — a ZodError's OBJECT-level text never quotes a submitted value,
+     * which is why this one is safe to log and the sentence below carries none of it.
+     *
+     * That is true of `formErrors` and not of `fieldErrors`, which does go to the
+     * caller: zod's enum message is `Invalid enum value. Expected 'a' | 'b', received
+     * 'what-they-typed'`, so a refused `careType`, `area`, `urgency`, `relationship`,
+     * `partnerRole` or `type` comes back carrying the submitted string. Left as it is on
+     * purpose — it is the caller's own input returned to the caller, React escapes it at
+     * the render, and the valid values it also names are the options the form's own
+     * select already shows. Said here so that nobody reads this line as a promise about
+     * the whole response and builds on it.
+     */
     console.warn('[intake] refused against the whole form:', formErrors.join('; '));
     body.message = 'We could not accept that form, and it is our end at fault rather '
       + 'than anything you typed. Please call us and we will take the details directly.';

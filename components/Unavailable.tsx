@@ -1,4 +1,5 @@
 import { contactLine, contactResolved, usingPlaceholderName } from '@/lib/brand';
+import { Main } from '@/components/layout';
 
 /**
  * What a signed-in surface shows when the database is unreachable.
@@ -16,7 +17,16 @@ export function Unavailable({ what }: { what: string }) {
   // that exists to say the site is not available told people to telephone the words
   // "Telephone pending".
   const phone = contactResolved() ? contactLine() : null;
+  /*
+   * Wrapped in the shared landmark. Every signed-in surface returns this INSTEAD of its
+   * own tree when there is no database, so on a deployment without one — which is this
+   * deployment today — it was the page a visitor reached with no main landmark at all,
+   * and every word on it outside every landmark. No skip link: there is no header here
+   * to skip, and the rule in tests/accessibility.test.ts refuses one where there is
+   * nothing to skip as firmly as it requires one where there is.
+   */
   return (
+    <Main>
     <div className="wrap" style={{ maxWidth: '34rem', paddingBlock: '5rem' }}>
       <h1 style={{ fontSize: 'var(--step-2)' }}>{what} is temporarily unavailable</h1>
       <p style={{ color: 'var(--ink-2)' }}>
@@ -38,5 +48,6 @@ export function Unavailable({ what }: { what: string }) {
         </p>
       ) : null}
     </div>
+    </Main>
   );
 }

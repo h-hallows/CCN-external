@@ -88,24 +88,67 @@ npm run ci         # copy lint, brand lint, typecheck, tests
 
 ## Environment
 
-| Variable | What it is |
-|---|---|
-| `DATABASE_URL` | pooled connection to the one Postgres |
-| `NEXT_PUBLIC_LEGAL_NAME` | the name shown everywhere. Unset, a deployment serves under `CCN` and is never indexed; see the next row. |
-| `NEXT_PUBLIC_NAME_IS_FILED` | `1` only once the name above is the registry's name **as filed**. Nothing infers it, and without it the site renders in full and is never indexed — § 1812.533(b)(2) wants the correct name in every advertisement, and an indexed page is advertised. |
-| `NEXT_PUBLIC_DISPLAY_NAME` | marketing name, only once counsel confirms a DBA is acceptable |
-| `NEXT_PUBLIC_PHONE` or `NEXT_PUBLIC_STREET` | required in every advertisement by § 1812.533(b)(2) |
-| `NEXT_PUBLIC_SITE_URL` | canonical origin |
-| `RESEND_API_KEY` | mail provider key. **Without it nobody can sign in**: in production there is no console driver and no link is printed. |
-| `MAIL_FROM` | a sender on a domain Resend has verified |
-| `MAIL_REPLY_TO` | optional, where replies go |
-| `OPERATOR_NOTIFY_EMAIL` | where "something arrived" goes. The message never carries a name, an address or any clinical detail — § 7 keeps that in the console. |
+**`.env.example` is the list.** Every variable is there with what happens when it is
+unset, and `tests/documentation.test.ts` fails if the code reads one the template does
+not mention, or the template asks for one nothing reads. This section deliberately does
+not repeat it: a table and a template that both claim to be the list is two things to
+keep in step, and the one that rots is the one nobody copies.
 
-`@h-hallows/core` is a public repository installed from a git tag, so `npm install`
-needs no token and no registry configuration, here or on Vercel.
+Two properties of this application's configuration are worth knowing before you read it.
 
-Vercel: Root Directory `/`. The portals are paths — `/portal`, `/pro`, `/partner` — not
+**Every `NEXT_PUBLIC_*` value is inlined at build time.** Changing one in a hosting
+dashboard does nothing to a deployment that was already built. Redeploy after saving, or
+the site goes on serving the value it was compiled with.
+
+**Nothing crashes when a variable is missing.** Each one has a defined unset state and
+the page says what is true in it — "Telephone pending" rather than a number somebody
+could dial, a marked placeholder naming who owes a figure rather than a plausible
+invented one, a site that renders in full and is never indexed rather than one indexed
+under a name nobody filed. That is deliberate, and it is also why an incomplete
+deployment looks finished. `/api/health` is the thing that will tell you otherwise.
+
+## Deploying
+
+Vercel, Root Directory `/`. The portals are paths — `/portal`, `/pro`, `/partner` — not
 subdomains, so there is one certificate and one cookie scope.
+
+`@h-hallows/core` is a public repository installed from a git tag, so `npm install` needs
+no token and no registry configuration, here or on Vercel.
+
+**There is one database and this repository does not own it.** The console
+([CCN-Registry](https://github.com/h-hallows/CCN-Registry)) owns the schema and applies
+every migration; this application only reads and writes rows. So provision the database
+there, apply the schema there, and then point this project at the **same pooled
+connection string**. There is no migration step in this deployment and there should
+never be one.
+
+Then, in the Vercel project:
+
+1. `DATABASE_URL` — the pooled connection, with `?sslmode=require`. Without it the
+   marketing pages still serve and everything behind a sign-in returns an explicit
+   "unavailable" page: `/login`, `/portal`, `/pro`, `/partner`, `/invite/[token]` and
+   every route under `/api`.
+2. `RESEND_API_KEY` and `MAIL_FROM` — a sender on a domain Resend has verified.
+   **Without both, nobody can sign in at all.** In production there is no console mail
+   driver, so no link is printed anywhere and none can be recovered; the sign-in form
+   refuses every address identically, which is the correct behaviour and also means an
+   empty value looks like success.
+3. `NEXT_PUBLIC_SITE_URL` — the canonical origin. Unset, a Vercel deployment falls back
+   to the host's own production URL, so the sitemap is valid and may name the wrong
+   hostname.
+4. `NEXT_PUBLIC_LEGAL_NAME`, plus `NEXT_PUBLIC_PHONE` or `NEXT_PUBLIC_STREET` —
+   § 1812.533(b)(2) wants the correct name and one of them in every advertisement.
+5. `NEXT_PUBLIC_NAME_IS_FILED=1` — **only** once the configured name is the filed one.
+   This is what makes the marketing pages indexable, and nothing infers it.
+6. Redeploy. Steps 3 to 5 are `NEXT_PUBLIC_*` and do not reach a build that already
+   happened.
+7. Check `/api/health`. It needs no sign-in, returns nothing about any household or
+   provider, and reports the database state and which brand facts are still missing.
+
+The figures on `/pricing` and the five commitments on `/privacy` are separate, and they
+are business facts rather than configuration — `.env.example` says who owes each one.
+Until they are supplied those pages mark them as unfilled, which is accurate; it is not
+a state to launch in.
 
 *Not legal advice. The texts in `content/statutory` need counsel before any referral is
 made under them.*

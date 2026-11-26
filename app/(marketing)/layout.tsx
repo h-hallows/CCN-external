@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import { StatutoryFooter } from '@/components/StatutoryFooter';
 import { CallToAction } from '@/components/CallToAction';
-import { Wrap } from '@/components/layout';
+import { Main, SkipLink, Wrap } from '@/components/layout';
 import {
   brandBlockers, contactLine, contactResolved, DISPLAY_NAME, indexable,
 } from '@/lib/brand';
+import { telHref } from '@/lib/site';
 import { NotPublished } from '@/components/NotPublished';
 import type { Metadata } from 'next';
 
@@ -56,8 +57,16 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
     return <NotPublished />;
   }
 
+  const tel = telHref();
+
   return (
     <>
+      {/*
+        * Before the header, because the tab order it exists to shortcut is the document
+        * order. Every marketing page opens with the wordmark, five navigation links and
+        * two header actions, so the enquiry form's first field was the ninth tab stop.
+        */}
+      <SkipLink />
       <header style={{ borderBottom: '1px solid var(--line)', background: 'var(--surface)' }}>
         <Wrap>
           <div className="site-head">
@@ -80,13 +89,30 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               * makes it required somewhere on the page anyway, and the top right is
               * where somebody with a discharge on Friday afternoon looks first.
               */}
+            {/*
+              * DIALLED, NOT PRINTED, WHEN THERE IS A NUMBER. This was a `span`: the one
+              * telephone number on the page, in the top right, read by somebody holding
+              * a phone in a hospital corridor — and they had to memorise it and type it
+              * into the dialler. `telHref()` is null for both stand-ins and for a street
+              * address, which is why the printed line and the href are two calls rather
+              * than one: § 1812.533(b)(2) wants the line on the page whether or not it is
+              * dialable, and a `tel:` built from a street address is a dead link.
+              */}
             <div className="head-actions">
               {contactResolved() ? (
-                <span className="nums" style={{
-                  fontSize: 'var(--step--1)', color: 'var(--ink-2)',
-                }}>
-                  {contactLine()}
-                </span>
+                tel ? (
+                  <a href={tel} className="nums" style={{
+                    fontSize: 'var(--step--1)', color: 'var(--ink-2)',
+                  }}>
+                    {contactLine()}
+                  </a>
+                ) : (
+                  <span className="nums" style={{
+                    fontSize: 'var(--step--1)', color: 'var(--ink-2)',
+                  }}>
+                    {contactLine()}
+                  </span>
+                )
               ) : null}
               <Link href="/enquire" className="btn btn-primary">Arrange care</Link>
             </div>
@@ -94,9 +120,9 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         </Wrap>
       </header>
 
-      <main>
+      <Main>
         <Wrap>{children}</Wrap>
-      </main>
+      </Main>
 
       <Wrap>
         <CallToAction />

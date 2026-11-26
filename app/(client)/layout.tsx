@@ -4,7 +4,7 @@ import type { Metadata } from 'next';
 import { getPortalSession } from '@/lib/session';
 import { databaseAvailable } from '@/lib/availability';
 import { Unavailable } from '@/components/Unavailable';
-import { Wrap } from '@/components/layout';
+import { Main, SkipLink, Wrap } from '@/components/layout';
 import { signOut } from '@/app/signOut';
 import { DISPLAY_NAME } from '@/lib/brand';
 
@@ -35,6 +35,7 @@ export default async function ClientLayout({ children }: { children: React.React
 
   return (
     <div data-surface="portal" style={{ minHeight: '100vh', background: 'var(--paper)', color: 'var(--ink)' }}>
+      <SkipLink />
       <header style={{ borderBottom: '1px solid var(--line)' }}>
         <Wrap>
           <div style={{
@@ -72,7 +73,7 @@ export default async function ClientLayout({ children }: { children: React.React
           </div>
         </Wrap>
       </header>
-      <main><Wrap>{children}</Wrap></main>
+      <Main><Wrap>{children}</Wrap></Main>
     </div>
   );
 }

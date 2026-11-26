@@ -4,9 +4,11 @@ import type { Metadata } from 'next';
 import { getDb } from '@h-hallows/core/db';
 import { mailConfigured, sendMail } from '@h-hallows/core/mail';
 import { getPortalSession, hashToken, newToken } from '@/lib/session';
+import { signOut } from '@/app/signOut';
 import { rateLimit } from '@/lib/rateLimit';
 import { databaseAvailable } from '@/lib/availability';
 import { Unavailable } from '@/components/Unavailable';
+import { Main } from '@/components/layout';
 
 export const metadata: Metadata = { title: 'Sign in', robots: { index: false } };
 export const dynamic = 'force-dynamic';
@@ -17,9 +19,41 @@ export default async function Login({
   const available = await databaseAvailable();
   if (!available.ok) return <Unavailable what="Signing in" />;
 
-  const existing = await getPortalSession();
-  if (existing) redirect(existing.role === 'provider' ? '/pro' : '/portal');
   const params = await searchParams;
+  const existing = await getPortalSession();
+
+  /*
+   * ONE REASON NOT TO BOUNCE A SIGNED-IN VISITOR STRAIGHT BACK TO THEIR PORTAL.
+   *
+   * `app/invite/[token]` refuses to swap one person's session for another's and sends
+   * them here with `error=signed-in-as-someone-else`. By construction that visitor HAS
+   * a session — it is the whole reason they were refused — so the redirect below took
+   * them to their own portal before this page rendered a word, and nothing anywhere
+   * told them why their link had apparently done nothing. The invite was deliberately
+   * left unconsumed so it would still work; the person had no way of learning that.
+   *
+   * This is the common case it was written for: a shared computer, or a provider's
+   * link opened in a browser where a family member is signed in.
+   */
+  if (existing && params.error === 'signed-in-as-someone-else') {
+    return (
+      <Main>
+      <div className="wrap" style={{ maxWidth: '30rem', paddingBlock: '5rem' }}>
+        <h1 style={{ fontSize: 'var(--step-2)' }}>That link is for someone else</h1>
+        <p style={{ marginTop: '1rem', fontSize: 'var(--step--1)', color: 'var(--ink-2)' }}>
+          This browser is already signed in as {existing.displayName}, so we have not
+          opened it. Nothing has happened to the link — sign out here and open it again,
+          or open it on your own phone or computer.
+        </p>
+        <form action={signOut} style={{ marginTop: '1.5rem' }}>
+          <button type="submit" className="btn btn-primary">Sign out</button>
+        </form>
+      </div>
+      </Main>
+    );
+  }
+
+  if (existing) redirect(existing.role === 'provider' ? '/pro' : '/portal');
 
   async function sendLink(formData: FormData) {
     'use server';
@@ -110,6 +144,7 @@ export default async function Login({
   }
 
   return (
+    <Main>
     <div className="wrap" style={{ maxWidth: '30rem', paddingBlock: '5rem' }}>
       <h1 style={{ fontSize: 'var(--step-2)' }}>Sign in</h1>
 
@@ -123,6 +158,19 @@ export default async function Login({
       {params.error === 'invite' ? (
         <p style={{ color: 'var(--crit)', fontSize: 'var(--step--1)' }}>
           That link is no longer valid. Links work once and expire after fifteen minutes.
+        </p>
+      ) : null}
+
+      {/*
+        * Said as a fact about this browser, not about the link. The invite route returns
+        * before it reads the token, so a limited caller's link is untouched — and
+        * telling them it was "no longer valid" would send somebody away from a perfectly
+        * good one.
+        */}
+      {params.error === 'too-many' ? (
+        <p style={{ color: 'var(--crit)', fontSize: 'var(--step--1)' }}>
+          Too many attempts from here just now. Wait a few minutes and open your link
+          again — it still works. Or call us and we will let you in by hand.
         </p>
       ) : null}
 
@@ -153,5 +201,6 @@ export default async function Login({
         call us instead.
       </p>
     </div>
+    </Main>
   );
 }

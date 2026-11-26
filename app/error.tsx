@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { brandBlockers, contactLine } from '@/lib/brand';
 import { NotPublished } from '@/components/NotPublished';
 import { StatutoryFooter } from '@/components/StatutoryFooter';
-import { Prose, Section, Stack, Wrap } from '@/components/layout';
+import { Main, Prose, Section, Stack, Wrap } from '@/components/layout';
 import { telHref } from '@/lib/site';
 
 /**
@@ -35,41 +35,53 @@ export default function Error({ reset }: {
 
   const tel = telHref();
 
+  /*
+   * `Main` and the footer outside it, for the reason app/not-found.tsx records: a
+   * boundary at app/ renders inside the root layout, so without this every word on the
+   * page is outside every landmark — and a `<footer>` inside `<main>` stops being a
+   * `contentinfo` landmark, so the footer cannot go in with it.
+   */
   return (
-    <Wrap>
-      <Stack gap="lg">
-        <Section title="This page did not load" as="h1">
-          <Prose>
-            <p style={{ fontSize: 'var(--step-1)', color: 'var(--ink-2)' }}>
-              Something at our end stopped part-way. It is not anything you did, and
-              nothing you have already sent us is affected.
-            </p>
-            <p>
-              <button type="button" onClick={reset} className="btn btn-primary">
-                Try the page again
-              </button>
-            </p>
-            <p>
-              If it does the same thing twice, go back to the{' '}
-              <Link href="/">home page</Link>, or{' '}
-              <Link href="/enquire">tell us what is needed</Link> and we will call you
-              back — that form is a different part of the site and will be working.
-            </p>
-            {/*
-              * As on the 404: a number only when there is one to dial, printed from the
-              * line the footer prints and dialled from its digits.
-              */}
-            {tel ? (
-              <p>
-                If it is urgent, call us on{' '}
-                <a href={tel} className="nums">{contactLine()}</a> — someone will pick
-                up.
-              </p>
-            ) : null}
-          </Prose>
-        </Section>
-      </Stack>
-      <StatutoryFooter />
-    </Wrap>
+    <>
+      <Main>
+        <Wrap>
+          <Stack gap="lg">
+            <Section title="This page did not load" as="h1">
+              <Prose>
+                <p style={{ fontSize: 'var(--step-1)', color: 'var(--ink-2)' }}>
+                  Something at our end stopped part-way. It is not anything you did, and
+                  nothing you have already sent us is affected.
+                </p>
+                <p>
+                  <button type="button" onClick={reset} className="btn btn-primary">
+                    Try the page again
+                  </button>
+                </p>
+                <p>
+                  If it does the same thing twice, go back to the{' '}
+                  <Link href="/">home page</Link>, or{' '}
+                  <Link href="/enquire">tell us what is needed</Link> and we will call you
+                  back — that form is a different part of the site and will be working.
+                </p>
+                {/*
+                  * As on the 404: a number only when there is one to dial, printed from the
+                  * line the footer prints and dialled from its digits.
+                  */}
+                {tel ? (
+                  <p>
+                    If it is urgent, call us on{' '}
+                    <a href={tel} className="nums">{contactLine()}</a> — someone will pick
+                    up.
+                  </p>
+                ) : null}
+              </Prose>
+            </Section>
+          </Stack>
+        </Wrap>
+      </Main>
+      <Wrap>
+        <StatutoryFooter />
+      </Wrap>
+    </>
   );
 }
