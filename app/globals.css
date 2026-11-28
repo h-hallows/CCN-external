@@ -106,6 +106,13 @@
    */
   --control-min-target: 44px;
 
+  /*
+   * How long a colour takes to change. One duration, because two would be a system
+   * nobody asked for, and 140ms because it is long enough to be seen as a change and
+   * short enough that a reader clicking through four pages never waits on it.
+   */
+  --motion-fast: 140ms;
+
   color-scheme: light;
 }
 
@@ -196,6 +203,64 @@ a:hover { color: var(--accent-2); }
 }
 @supports not selector(:focus-visible) {
   :focus { outline: 3px solid var(--ink); outline-offset: 2px; }
+}
+
+/*
+ * MOTION, AND THE RULE THAT TURNS IT OFF.
+ *
+ * There was none. Not one `transition` in this stylesheet, so every hover state on the
+ * site changed between frames: a card's border, a button's fill, a link's colour. Each
+ * on its own is a jump nobody would bother to name, and together they are a good part
+ * of why these pages read as a document rather than as something made. What is missing
+ * is not animation. It is the sixth of a second that tells a reader their pointer did
+ * something.
+ *
+ * ON THE FOUR PROPERTIES THAT ACTUALLY CHANGE, not on `all`. Every hover and focus rule
+ * in this file moves a colour and nothing else; `transition: all` would additionally
+ * animate layout, which on a page of text is a reflow no one asked for and a dropped
+ * frame on the hardware a lot of this readership is holding.
+ *
+ * THE OUTLINE IS DELIBERATELY NOT IN THE LIST. Somebody tabbing quickly has to see
+ * where they are on the frame they arrive, not 140ms afterwards, and an easing focus
+ * ring during a fast tab sequence reads as the page lagging behind the keyboard. A
+ * colour may fade. The thing that says where you are may not.
+ *
+ * WHY BOTH HALVES OF THE QUERY. The first only ever starts a transition for a reader
+ * who has expressed no preference, so the default on a machine that asks for less
+ * motion is no transition at all rather than one that has to be overridden. The second
+ * then catches anything a component adds later — a keyframe animation, a smooth scroll
+ * — without that component having to know this section exists. Belt and braces, and
+ * the braces are the half that keeps working as the site grows.
+ *
+ * This is not politeness. § 2.3.3 asks for it, and more to the point these pages are
+ * read by people in the first weeks after surgery and by families in the days after a
+ * discharge, which is exactly the readership in which vestibular disorder is common.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  a,
+  .btn,
+  .card,
+  .cta-card,
+  .cta-go,
+  input,
+  select,
+  textarea {
+    transition:
+      color var(--motion-fast) ease,
+      background-color var(--motion-fast) ease,
+      border-color var(--motion-fast) ease;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /*

@@ -90,7 +90,20 @@ export function PartnerReferralForm({
   }
 
   return (
-    <form onSubmit={onSubmit} style={{ maxWidth: 'var(--measure)' }}>
+    /*
+     * A real `method` and `action`, although the press is handled in JavaScript: a
+     * form with neither GETs to the current URL with every named field in the query
+     * string, which on this form means a patient's initials and a referrer's direct line in the URL bar, the
+     * history and the access log. `components/EnquiryForm.tsx` carries the long
+     * version of why. With JavaScript nothing changes — the handler calls
+     * `preventDefault()` first.
+     */
+    <form
+      method="post"
+      action="/api/refer"
+      onSubmit={onSubmit}
+      style={{ maxWidth: 'var(--measure)' }}
+    >
       <Group
         legend="Who you are"
         hint={you

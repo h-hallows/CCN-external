@@ -264,6 +264,30 @@ const within = (spans: [number, number][], at: number) =>
   spans.some(([from, to]) => at > from && at < to);
 
 const CONTROL = new Set(['input', 'select', 'textarea']);
+
+/*
+ * The controls a person can actually meet, which is what every rule below is about.
+ *
+ * A `type="hidden"` input is in none of those senses a control: it cannot be focused,
+ * it renders nothing, it is not in the accessibility tree, and there is no moment at
+ * which a reader could be told its name or misled by its placeholder. WCAG's labelling
+ * requirement is about user interface components and a hidden input is not one.
+ *
+ * Written as one helper rather than a filter repeated in each rule, so a rule added
+ * later inherits the exclusion instead of rediscovering it. `/enquire`'s `sourcePath`
+ * was the first hidden field the site had — added when the three public forms were
+ * given a real `action`, because a field the schema requires cannot live only in
+ * JavaScript — and it failed this file on the day it appeared.
+ *
+ * THE HONEYPOT IS NOT EXEMPT, and must not become so. It is a real text input moved
+ * off screen with a negative offset, so a screen reader walks straight into it; its
+ * label is the only thing that makes it survivable for the reader it is not aimed at.
+ */
+function realControls(html: string): ReturnType<typeof elements> {
+  return elements(html)
+    .filter((e) => CONTROL.has(e.tag))
+    .filter((e) => e.attrs.type !== 'hidden');
+}
 /** Focusable without anybody saying so. */
 const FOCUSABLE = new Set(['a', 'button', 'input', 'select', 'textarea', 'summary']);
 
@@ -344,7 +368,7 @@ describe('no control exists without a label a machine can find', () => {
       const labelled = new Set(
         elements(html).filter((e) => e.tag === 'label' && e.attrs.for).map((e) => e.attrs.for!),
       );
-      for (const control of elements(html).filter((e) => CONTROL.has(e.tag))) {
+      for (const control of realControls(html)) {
         const how = control.attrs['aria-label'] ? 'aria-label'
           : control.attrs['aria-labelledby'] ? 'aria-labelledby'
             : control.attrs.id && labelled.has(control.attrs.id) ? 'label[for]'
@@ -360,7 +384,7 @@ describe('no control exists without a label a machine can find', () => {
 
   it('and none of them is leaning on a placeholder instead', () => {
     for (const [path, html] of documents) {
-      for (const control of elements(html).filter((e) => CONTROL.has(e.tag))) {
+      for (const control of realControls(html)) {
         expect(
           control.attrs.placeholder,
           `${path}: <${control.tag} name="${control.attrs.name}"> uses a placeholder`,

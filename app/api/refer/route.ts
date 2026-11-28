@@ -12,7 +12,9 @@ import { rateLimit } from '@/lib/rateLimit';
 import { notifyOperator } from '@/lib/notify';
 import { unstable_rethrow } from 'next/navigation';
 import { getPortalSession, type PortalSession } from '@/lib/session';
-import { accepted, failed, limited, readBody, rejected, silentlyDropped } from '@/lib/intakeResponse';
+import {
+  accepted, checkbox, failed, limited, readBody, rejected, silentlyDropped,
+} from '@/lib/intakeResponse';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,6 +57,14 @@ export async function POST(request: NextRequest): Promise<Response> {
   if (typeof body.honeypot === 'string' && body.honeypot.trim() !== '') {
     return silentlyDropped();
   }
+
+  /*
+   * The consent tick, which the schema wants as `true` and a browser posts as the
+   * string "on". An unticked box posts nothing at all, so this resolves to false and
+   * `z.literal(true)` refuses it — which is the correct answer, and the first time
+   * that refusal has been reachable at all.
+   */
+  body.consentNote = checkbox(body.consentNote);
 
   const parsed = PartnerReferralSchema.safeParse(body);
   if (!parsed.success) return rejected(parsed.error);

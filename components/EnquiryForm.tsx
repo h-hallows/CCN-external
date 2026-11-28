@@ -44,9 +44,7 @@ export function EnquiryForm({ careType }: { careType?: string }) {
     event.preventDefault();
     setResult({ state: 'sending' });
     const form = new FormData(event.currentTarget);
-    setResult(await postIntake('/api/inquiry', form, (body) => {
-      body.sourcePath = path;
-    }));
+    setResult(await postIntake('/api/inquiry', form));
   }
 
   if (result.state === 'sent') {
@@ -65,7 +63,34 @@ export function EnquiryForm({ careType }: { careType?: string }) {
   }
 
   return (
-    <form onSubmit={onSubmit} style={{ maxWidth: 'var(--measure)' }}>
+    /*
+     * A REAL `method` AND `action`, ALTHOUGH THE PRESS IS HANDLED IN JAVASCRIPT.
+     *
+     * This was `<form onSubmit={...}>` with neither, and a form with neither does a GET
+     * to the current URL with every named field in the query string. So with JavaScript
+     * off, with a bundle that failed, or inside the hydration window on a slow
+     * connection, the press sent the household's name, telephone, email and free-text
+     * "what is going on" into the URL bar, the browser history, the access log of every
+     * proxy on the way, and the referrer of whatever was clicked next — and then showed
+     * an empty form with no error, so nobody knew the enquiry had not arrived.
+     *
+     * Verified rather than reasoned about: submitting natively produced
+     * `/enquire?...&name=Jane+Doe&phone=310-555-0123&email=jane%%40example.com&message=
+     * Mum+is+discharging+Monday+after+a+hip+replacement`.
+     *
+     * With JavaScript the handler below calls `preventDefault()` first, so nothing about
+     * the enhanced path changes. Without it the browser POSTs to the same endpoint the
+     * fetch would have used; `readBody` in `lib/intakeResponse.ts` takes form encoding as
+     * well as JSON, so the enquiry is recorded and the operator notified. The visitor
+     * sees the route's JSON rather than the confirmation panel, which is plain but
+     * truthful — and is the thing still owed here, recorded in NEXT.md.
+     */
+    <form
+      method="post"
+      action="/api/inquiry"
+      onSubmit={onSubmit}
+      style={{ maxWidth: 'var(--measure)' }}
+    >
       <Group
         legend="What you need"
         hint="If you are not sure yet, say so — most people are not, and it is what the
@@ -193,6 +218,22 @@ export function EnquiryForm({ careType }: { careType?: string }) {
           </Field>
         </div>
       </Group>
+
+      {/*
+        * The source path as a hidden field rather than a line of JavaScript.
+        *
+        * `postIntake` used to add it to the body in its shape callback, which meant the
+        * one field the schema marks `// hidden` was the one field that only existed when
+        * JavaScript ran. The moment the form was given a real `action` that showed up as
+        * the whole submission being refused — `{"ok":false,"fieldErrors":{"sourcePath":
+        * ["Required"]}}` — because `sourcePath` is not optional and a browser posting the
+        * form by itself had no way to know about it.
+        *
+        * In the markup it is simply part of the form, so both paths send the same thing
+        * and there is one place it comes from. Still read from the router rather than
+        * hard-coded per page, for the reason above.
+        */}
+      <input type="hidden" name="sourcePath" value={path} />
 
       <Honeypot />
       <Submit label="Send this to us" sendingLabel="Sending…" result={result} />

@@ -89,7 +89,20 @@ export function ProviderApplicationForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} style={{ maxWidth: 'var(--measure)' }}>
+    /*
+     * A real `method` and `action`, although the press is handled in JavaScript: a
+     * form with neither GETs to the current URL with every named field in the query
+     * string, which on this form means an applicant's name, telephone, email and licence number in the URL bar, the
+     * history and the access log. `components/EnquiryForm.tsx` carries the long
+     * version of why. With JavaScript nothing changes — the handler calls
+     * `preventDefault()` first.
+     */
+    <form
+      method="post"
+      action="/api/apply"
+      onSubmit={onSubmit}
+      style={{ maxWidth: 'var(--measure)' }}
+    >
       <Group legend="Who you are">
         <div style={twoUp}>
           <Field id="fullName" label="Your name" errors={errors.fullName}>

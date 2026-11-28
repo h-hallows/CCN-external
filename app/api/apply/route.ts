@@ -9,7 +9,9 @@ import { ProviderApplicationSchema } from '@/lib/schemas/intake';
 import { recordApplication } from '@/lib/intake';
 import { rateLimit } from '@/lib/rateLimit';
 import { notifyOperator } from '@/lib/notify';
-import { accepted, failed, limited, readBody, rejected, silentlyDropped } from '@/lib/intakeResponse';
+import {
+  accepted, failed, limited, many, readBody, rejected, silentlyDropped,
+} from '@/lib/intakeResponse';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,6 +26,15 @@ export async function POST(request: NextRequest): Promise<Response> {
   if (typeof body.honeypot === 'string' && body.honeypot.trim() !== '') {
     return silentlyDropped();
   }
+
+  /*
+   * The three repeated fields, in the shape the schema asks for. `postIntake`'s own
+   * callback does exactly this for the JSON path and says why; this is the same
+   * bridge for the browser's native POST, where one ticked box arrives as a string.
+   */
+  body.areas = many(body.areas);
+  body.languages = many(body.languages);
+  body.specialties = many(body.specialties);
 
   const parsed = ProviderApplicationSchema.safeParse(body);
   if (!parsed.success) return rejected(parsed.error);

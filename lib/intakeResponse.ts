@@ -24,6 +24,39 @@ export async function readBody(request: Request): Promise<Record<string, unknown
   return out;
 }
 
+/*
+ * THE TWO SHAPES A BROWSER'S OWN POST HAS THAT A JSON POST DOES NOT.
+ *
+ * `readBody` above is deliberately content-type agnostic, and now that the three public
+ * forms carry a real `method` and `action` these routes genuinely receive both
+ * encodings: JSON from the fetch the client makes when it has JavaScript, and
+ * `application/x-www-form-urlencoded` from the browser's own submit when it does not.
+ *
+ * The client bridged the difference in `postIntake`'s `shape` callback and documented
+ * why. Nothing bridged it on the server, so the moment the no-JavaScript path started
+ * working it would have reached a `.strict()` schema with the wrong types and been
+ * refused — a form that posts correctly and is then thrown away is no better to the
+ * person who filled it in than one that does not post at all.
+ *
+ * Both are idempotent, so the JSON path passes through unchanged and no route has to
+ * know which encoding it was handed.
+ */
+
+/** A checkbox posts the string "on" when ticked and nothing whatever when it is not. */
+export function checkbox(value: unknown): boolean {
+  return value === true || value === 'on';
+}
+
+/**
+ * A repeated field as an array, including the case `readBody` cannot see: one key
+ * carrying one value is indistinguishable from a text input, so a single ticked box
+ * arrives as a string and `z.array(z.string())` refuses it. Ticking one box and ticking
+ * two must not be different kinds of thing.
+ */
+export function many(value: unknown): unknown {
+  return value === undefined ? undefined : (Array.isArray(value) ? value : [value]);
+}
+
 /** A short, quotable reference. Enough for the operator to find it, not an id to guess. */
 export function accepted(message: string, id: string): Response {
   return Response.json(

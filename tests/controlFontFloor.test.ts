@@ -165,11 +165,36 @@ describe('the 16px floor is in the stylesheet, where a new form inherits it', ()
   });
 
   it('applies it to every text-entry control, including ones nobody has written yet', () => {
-    const rule = new RegExp(
+    /*
+     * EVERY rule whose selector names the controls, not whichever one comes first.
+     *
+     * `exec` returns the earliest match in the file, so the moment a second rule was
+     * written with this same selector list — the motion section does exactly that,
+     * higher up — this test started reading that rule's body, finding no font-size in
+     * it, and failing while the floor it was actually asking about sat intact a
+     * hundred lines below. The failure message pointed at the floor, which was fine.
+     *
+     * A test that finds a rule by its selector has to assume the selector gets written
+     * more than once, because a stylesheet is allowed to do that. Collect them all and
+     * ask whether any of them carries the declaration — which is what the `.btn`
+     * assertion further down has always done.
+     */
+    const candidates = [...css.matchAll(new RegExp(
       String.raw`input:not\(\[type='checkbox'\]\):not\(\[type='radio'\]\)`
       + String.raw`[^{]*\{([^}]*)\}`,
-    ).exec(css);
-    expect(rule, 'no rule in app/globals.css floors input, select and textarea').toBeTruthy();
+      'g',
+    ))];
+    expect(
+      candidates.length,
+      'no rule in app/globals.css floors input, select and textarea',
+    ).toBeGreaterThan(0);
+    const rule = candidates.find(
+      (m) => /font-size:\s*max\(\s*var\(--control-font-min\)/.test(m[1]!),
+    );
+    expect(
+      rule,
+      'a rule names the controls but none of them declares the 16px floor',
+    ).toBeTruthy();
     const selector = css.slice(css.lastIndexOf('}', rule!.index) + 1, rule!.index + rule![0].indexOf('{'));
     for (const tag of ['select', 'textarea']) {
       expect(selector, `the floor does not cover ${tag}`).toContain(tag);
@@ -262,14 +287,19 @@ describe('nothing in the source declares a size on a control', () => {
     ).toBeGreaterThanOrEqual(44);
 
     // On the text-entry controls, in the same rule as the font floor...
-    const rule = /input:not\(\[type='checkbox'\]\):not\(\[type='radio'\]\)[^{]*\{([^}]*)\}/
-      .exec(css);
-    expect(rule, 'no rule in app/globals.css floors the controls').toBeTruthy();
+    // Every rule that names the controls, for the reason given above.
+    const controlRules = [...css.matchAll(
+      /input:not\(\[type='checkbox'\]\):not\(\[type='radio'\]\)[^{]*\{([^}]*)\}/g,
+    )].map((m) => m[1]!);
     expect(
-      rule![1],
-      'the control rule declares no min-height, so a select is whatever its engine '
-      + 'makes it — which on a phone was 43.8px',
-    ).toMatch(/min-height:\s*var\(--control-min-target\)/);
+      controlRules.length,
+      'no rule in app/globals.css floors the controls',
+    ).toBeGreaterThan(0);
+    expect(
+      controlRules.some((b) => /min-height:\s*var\(--control-min-target\)/.test(b)),
+      'no rule declares a min-height on the controls, so a select is whatever its '
+      + 'engine makes it — which on a phone was 43.8px',
+    ).toBe(true);
 
     // ...and on the buttons, which are not text-entry controls and were never covered.
     const btn = /\.btn\s*\{([^}]*)\}/g;
