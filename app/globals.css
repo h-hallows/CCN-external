@@ -605,6 +605,108 @@ select {
 .cta-card:hover .cta-go { color: var(--accent); }
 
 /*
+ * A DOOR CARD WITH A REAL HEADING IN IT.
+ *
+ * `components/CallToAction.tsx` builds its three with spans, which is right for three
+ * cards that are the same three on every page — they are an aside, not an outline. The
+ * ten curated pages on `/care` are the content of that page, and a reader navigating by
+ * heading should find them, so those cards carry an `h3`. Both shapes are the same card:
+ * the two declarations below are what stop the heading's own `margin: 0 0 .5em` and the
+ * paragraph's `--measure` ceiling from pulling the flex column apart.
+ */
+.cta-card h3 { margin: 0; font-size: var(--step-1); color: var(--accent); }
+.cta-card p { max-width: none; margin: 0; }
+.cta-card .label { margin: 0; }
+
+/*
+ * CHIPS, WHICH WERE NINE PLACE NAMES THAT DID NOTHING.
+ *
+ * The homepage listed the nine areas as `span`s with their styling typed inline, under a
+ * heading that says where we work — nine of the most specific words on the site, next to
+ * ten pages written about those exact places, and no link between them. They are links
+ * now, and the styling is here rather than in the page because there are two pages that
+ * want them and inline styles cannot carry a hover or a focus ring.
+ *
+ * The 44px floor is on the chip and not on the row: a chip is a tap target and
+ * `--control-min-target` is what one is, which is the same rule `.tick` and the header
+ * links were given. `padding-inline` does the rest of the width — a target that is tall
+ * enough and three characters wide is still a miss.
+ */
+/*
+ * THE SPACE BETWEEN TWO SECTIONS, WHICH WAS A THIRD OF A SECTION.
+ *
+ * `components/layout.tsx` set this inline at 2.5rem top and bottom, and `Stack gap="lg"`
+ * adds 4rem between the same two edges without either knowing about the other — 144px
+ * on every page, unchanged from a 1440px desktop to a 375px phone, where it is most of a
+ * screen of nothing.
+ *
+ * A clamp rather than a smaller fixed number, because the air a wide page wants is not
+ * the air a phone wants, and the whole reason this went unnoticed is that an inline
+ * style had no business expressing a responsive decision. The floor is deliberately
+ * small: on a phone the Stack's own 4rem is already more than enough separation, and
+ * what the reader needs is to see the next heading.
+ */
+.section { padding-block: clamp(.5rem, 2.2vw, 2rem); }
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  max-width: none;
+  margin: 1rem 0 0;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-min-target);
+  padding: .3rem .9rem;
+  border: 1px solid var(--control-border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: var(--step--1);
+  text-decoration: none;
+}
+.chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+
+/*
+ * THE TWO-QUESTION PICKER ON `/care`.
+ *
+ * A row on a wide screen and a column on a phone, which `flex-wrap` and a `min-width` on
+ * each field do between them without a media query. The button is `align-self: end` so
+ * it sits on the baseline of the two controls rather than being stretched to the height
+ * of a label plus a select — and `margin-top: auto` is wrong here for the same reason it
+ * was right on the card: this row is laid out across, not down.
+ */
+.picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 1rem;
+  margin-top: 1.75rem;
+  padding: 1.25rem 1.35rem 1.4rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+}
+.picker-field {
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+  flex: 1 1 13rem;
+  min-width: 11rem;
+}
+.picker-field label { font-size: var(--step--1); color: var(--ink-2); }
+/*
+ * Once the row has become a column there is no row for the button to sit at the end of,
+ * and a 110px button under two full-width selects reads as a third, smaller control
+ * rather than as the thing that submits them.
+ */
+@media (max-width: 34rem) {
+  .picker button { width: 100%; justify-content: center; }
+}
+
+/*
  * The header. A row that wraps, with the one primary action held to the right where it
  * stays reachable on a phone without pushing the navigation off the screen.
  */

@@ -103,7 +103,22 @@ export function Section({
   as?: 'h1' | 'h2' | 'h3';
 }) {
   return (
-    <section style={{ paddingBlock: '2.5rem' }}>
+    /*
+      * `.section` and not an inline `paddingBlock: '2.5rem'`.
+      *
+      * ONE HUNDRED AND FORTY-FOUR PIXELS BETWEEN EVERY TWO SECTIONS, measured on the
+      * homepage, where the sections themselves run 426 to 611px: a third of a block of
+      * content, in blank paper, four times down the page, and the same 144px on a 375px
+      * phone where it is most of a screen. 2.5rem above and 2.5rem below is only half of
+      * it — `Stack gap="lg"` contributes 4rem of its own between the same two edges, and
+      * neither knows about the other.
+      *
+      * The fix is a clamp in the stylesheet rather than a smaller number here, because
+      * the number that is right on a 1440px desktop is not the number that is right on a
+      * phone, and an inline style cannot say so. An inline style also cannot be measured
+      * by anything, which is how this one sat unexamined through two design passes.
+      */
+    <section className="section">
       {label ? <p className="label" style={{ margin: '0 0 .35rem' }}>{label}</p> : null}
       {title ? <As>{title}</As> : null}
       {children}

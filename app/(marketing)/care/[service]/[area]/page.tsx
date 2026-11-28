@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { publicMetadata } from '@/lib/brand';
 import { notFound } from 'next/navigation';
 import { CROSSED_PAGES, areaName, crossedPage } from '@/content/crossed';
-import { crossedPath, faqJsonLd } from '@/lib/crossed';
+import { areaValue, crossedPath, faqJsonLd } from '@/lib/crossed';
 import {
   CREDENTIAL_LABEL, CREDENTIAL_ORDER, currentRateRanges, formatRange,
 } from '@/lib/rates';
@@ -162,10 +162,22 @@ export default async function CrossedPage(
           */}
         <Section>
           <p style={{ display: 'flex', flexWrap: 'wrap', gap: '.75rem' }}>
-            <Link href={`/enquire?care=${page.rateKey}`} className="btn btn-primary">
+            <Link
+              href={`/enquire?care=${page.rateKey}&area=${areaValue(page.area)}`}
+              className="btn btn-primary"
+            >
               Arrange this
             </Link>
             <Link href="/how-it-works" className="btn">How a referral works</Link>
+            {/*
+              * The way back to the question, and NOT inside "Related" above, which is
+              * where this was first put. "Related" renders only when this page shares a
+              * service or a place with another one — and the Malibu respite page shares
+              * neither, so the two pages with no neighbours, which are the ones a reader
+              * is most stranded on, were the two that got no way out. Here it is on all
+              * ten, because this row is not conditional on anything.
+              */}
+            <Link href="/care" className="btn">Everything we cover</Link>
           </p>
           <Prose>
             <p style={{ marginTop: '1.25rem', fontSize: 'var(--step--1)', color: 'var(--ink-3)' }}>

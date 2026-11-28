@@ -159,25 +159,34 @@ export default function Home() {
               your particular building or canyon.
             </p>
           </Prose>
-          <p style={{
-            display: 'flex', flexWrap: 'wrap', gap: '.4rem .5rem', marginTop: '1rem',
-            maxWidth: 'none',
-          }}>
+          {/*
+            * NINE PLACE NAMES THAT WENT NOWHERE, UNDER A HEADING ABOUT WHERE WE WORK.
+            *
+            * These were `span`s. Meanwhile ten hand-written pages about these exact
+            * places had shipped under `/care/<service>/<area>` and nothing in the
+            * application linked to a single one of them — the most specific words on the
+            * site sitting inches from the pages written about them.
+            *
+            * Each one now goes to `/care?area=`, which lists what we have written about
+            * that place and asks the second question. Not straight to a curated page:
+            * four of the nine have one page, two have two, and three have none at all,
+            * so a chip that sometimes landed on a page about a service nobody asked for
+            * and sometimes on a 404 would be worse than a span. `.chip` carries the 44px
+            * target the inline version did not have at 33.7px.
+            */}
+          <p className="chips">
             {AREA_OPTIONS.filter((a) => a.value !== 'other').map((a) => (
-              <span
-                key={a.value}
-                style={{
-                  border: '1px solid var(--line)', background: 'var(--surface)',
-                  borderRadius: 6, padding: '.3rem .7rem', fontSize: 'var(--step--1)',
-                }}
-              >
+              <Link key={a.value} href={`/care?area=${a.value}`} className="chip">
                 {a.label}
-              </span>
+              </Link>
             ))}
           </p>
           <p style={{ marginTop: '1rem', fontSize: 'var(--step--1)', color: 'var(--ink-3)' }}>
             Somewhere else nearby? Ask anyway — we will tell you honestly whether we have
             anyone who can get to you.
+          </p>
+          <p style={{ marginTop: '1.25rem' }}>
+            <Link href="/care" className="btn">Care by service and area</Link>
           </p>
         </Section>
       </Stack>

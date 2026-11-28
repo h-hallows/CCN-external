@@ -41,6 +41,19 @@ async function Body({
    */
   const params = (await searchParams) ?? {};
   const care = typeof params.care === 'string' ? params.care : undefined;
+  /*
+   * AND THE PLACE, WHICH WAS BEING DROPPED. `?care=` has been read here since the
+   * crossed pages went in and `?area=` never was — so the picker on `/care`, and every
+   * crossed page's own "Arrange this", handed over both answers and the form asked one
+   * of them again. A select that has already been answered and is still empty reads as
+   * a site that was not listening.
+   *
+   * Validated in the component rather than here: `EnquiryForm` passes whatever arrives
+   * as a `defaultValue` on a select whose options are the enum, and a browser ignores a
+   * `defaultValue` that matches no option — so a hand-typed query string leaves the
+   * field unchosen rather than selecting something that is not on the list.
+   */
+  const area = typeof params.area === 'string' ? params.area : undefined;
   const line = contactLine();
 
   return (
@@ -90,7 +103,7 @@ async function Body({
       </Section>
 
       <Section title="Tell us what is needed" as="h2">
-        <EnquiryForm careType={care} />
+        <EnquiryForm careType={care} area={area} />
       </Section>
     </Stack>
   );

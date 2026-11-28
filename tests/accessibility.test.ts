@@ -155,6 +155,17 @@ const ROUTES: Route[] = [
     module: '@/app/(marketing)/enquire/page',
     props: { searchParams: Promise.resolve({}) },
   },
+  /*
+   * The index for the ten curated pages, which is a GET form and a filtered list and so
+   * takes the same `searchParams` prop /enquire does. Rendered with none: that is the
+   * state a visitor arrives in, and the state in which the picker has to be labelled,
+   * focusable and legible.
+   */
+  {
+    path: '/care',
+    module: '@/app/(marketing)/care/page',
+    props: { searchParams: Promise.resolve({}) },
+  },
   { path: '/refer', module: '@/app/(marketing)/refer/page' },
   { path: '/apply', module: '@/app/(marketing)/apply/page' },
   {

@@ -26,6 +26,15 @@ export const MARKETING_ROUTES: {
   { path: '/for-providers', priority: 0.7, changeFrequency: 'monthly' },
   { path: '/for-partners', priority: 0.7, changeFrequency: 'monthly' },
   /*
+   * The index for the ten curated pages. Higher than the pages that argue for the
+   * business, because it is the only route on the site that answers "a nurse, in my
+   * area" — which is the query the ten pages were written for and which nothing on the
+   * site could answer until there was a page that crosses the two lists.
+   *
+   * `crossedRoutes()` contributes the ten themselves; this is the one above them.
+   */
+  { path: '/care', priority: 0.8, changeFrequency: 'monthly' },
+  /*
    * The three doors, above the pages that argue for them. `/enquire` is the one the
    * business runs on, so it sits level with the homepage — and `tests/doors.test.ts`
    * asserts every route under app/(marketing) appears in this list and that nothing

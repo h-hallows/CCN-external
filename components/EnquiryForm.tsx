@@ -29,7 +29,7 @@ import {
   AREA_OPTIONS, CARE_OPTIONS, PAYMENT_OPTIONS, RELATIONSHIP_OPTIONS, URGENCY_OPTIONS,
 } from '@/lib/vocabulary';
 
-export function EnquiryForm({ careType }: { careType?: string }) {
+export function EnquiryForm({ careType, area }: { careType?: string; area?: string }) {
   const [result, setResult] = useIntake();
   /*
    * Which page they came from, recorded as the enquiry's source. It is the only thing
@@ -109,7 +109,10 @@ export function EnquiryForm({ careType }: { careType?: string }) {
             </select>
           </Field>
           <Field id="area" label="Where they are" errors={errors.area}>
-            <select id="area" name="area" required defaultValue="" style={inputStyle(errors.area)}>
+            <select
+              id="area" name="area" required
+              defaultValue={area ?? ''} style={inputStyle(errors.area)}
+            >
               <option value="" disabled>Choose one</option>
               {AREA_OPTIONS.map((a) => (
                 <option key={a.value} value={a.value}>{a.label}</option>
