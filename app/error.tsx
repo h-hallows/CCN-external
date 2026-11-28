@@ -48,7 +48,7 @@ export default function Error({ reset }: {
           <Stack gap="lg">
             <Section title="This page did not load" as="h1">
               <Prose>
-                <p style={{ fontSize: 'var(--step-1)', color: 'var(--ink-2)' }}>
+                <p className="lede">
                   Something at our end stopped part-way. It is not anything you did, and
                   nothing you have already sent us is affected.
                 </p>

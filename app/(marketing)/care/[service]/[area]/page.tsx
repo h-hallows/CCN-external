@@ -72,7 +72,7 @@ export default async function CrossedPage(
       <Stack gap="lg">
         <Section title={page.title} as="h1">
           <Prose>
-            <p style={{ fontSize: 'var(--step-1)', color: 'var(--ink-2)' }}>{page.summary}</p>
+            <p className="lede">{page.summary}</p>
             {page.body.map((paragraph) => <p key={paragraph.slice(0, 40)}>{paragraph}</p>)}
           </Prose>
         </Section>

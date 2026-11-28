@@ -76,7 +76,7 @@ export default function NotFound() {
           <Stack gap="lg">
             <Section title="There is no page at that address" as="h1">
               <Prose>
-                <p style={{ fontSize: 'var(--step-1)', color: 'var(--ink-2)' }}>
+                <p className="lede">
                   Either we have moved something, or the address has a character out of
                   place. Nothing has gone wrong at your end.
                 </p>

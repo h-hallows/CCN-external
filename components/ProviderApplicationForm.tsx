@@ -39,9 +39,14 @@ const checkRow: React.CSSProperties = {
 
 function Check({ name, value, label }: { name: string; value: string; label: string }) {
   return (
-    <label style={{
-      display: 'inline-flex', alignItems: 'center', gap: '.4rem',
-      fontSize: 'var(--step--1)', border: '1px solid var(--line)',
+    <label className="tick" style={{
+      /*
+       * --control-border, not --line. The whole chip is the target, so § 1.4.11's 3:1
+       * applies to its edge — and --line measures 1.38:1 against the chip's own
+       * --surface fill, which is itself 1.03:1 against the paper behind it. Thirty-four
+       * controls with no visible edge, on the page where a nurse joins the roster.
+       */
+      fontSize: 'var(--step--1)', border: '1px solid var(--control-border)',
       background: 'var(--surface)', borderRadius: 6, padding: '.3rem .6rem',
     }}>
       <input type="checkbox" name={name} value={value} />

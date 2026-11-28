@@ -23,7 +23,7 @@ export default function Apply() {
     <Stack gap="lg">
       <Section title="Apply to be referred" as="h1">
         <Prose>
-          <p style={{ fontSize: 'var(--step-1)', color: 'var(--ink-2)' }}>
+          <p className="lede">
             We keep a small roster of experienced nurses and caregivers in West Los
             Angeles. If we refer you to a household, you set your own rate, you decide
             what you take, and you are never charged a fee of any kind.

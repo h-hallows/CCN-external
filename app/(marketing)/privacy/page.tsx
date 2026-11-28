@@ -73,7 +73,7 @@ export default function Privacy() {
     <Stack gap="lg">
       <Section title="Privacy" as="h1">
         <Prose>
-          <p style={{ fontSize: 'var(--step-1)', color: 'var(--ink-2)' }}>
+          <p className="lede">
             This is what the forms on this site collect, where it goes, and who can see
             it. It describes what the software does, field by field, rather than what a
             notice of this kind usually says.

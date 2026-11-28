@@ -56,10 +56,7 @@ export function ReferralFeedback({ referralId }: { referralId: string }) {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center' }}>
           <span style={{ fontSize: 'var(--step--1)', color: 'var(--ink-3)' }}>{RATING_LOW}</span>
           {SCALE.map((n) => (
-            <label key={n} style={{
-              display: 'inline-flex', alignItems: 'center', gap: '.35rem',
-              fontSize: 'var(--step--1)',
-            }}>
+            <label key={n} className="tick" style={{ fontSize: 'var(--step--1)' }}>
               <input type="radio" name="introductionRating" value={n} required />
               {n}
             </label>
@@ -74,10 +71,10 @@ export function ReferralFeedback({ referralId }: { referralId: string }) {
         </legend>
         <div style={{ display: 'flex', gap: '1.25rem' }}>
           {/* Rendered identically. A default answer is not an answer. */}
-          <label style={{ display: 'inline-flex', alignItems: 'center', gap: '.4rem', fontSize: 'var(--step--1)' }}>
+          <label className="tick" style={{ fontSize: 'var(--step--1)' }}>
             <input type="radio" name="wouldAskAgain" value="yes" required /> Yes
           </label>
-          <label style={{ display: 'inline-flex', alignItems: 'center', gap: '.4rem', fontSize: 'var(--step--1)' }}>
+          <label className="tick" style={{ fontSize: 'var(--step--1)' }}>
             <input type="radio" name="wouldAskAgain" value="no" required /> No
           </label>
         </div>

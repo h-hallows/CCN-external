@@ -96,9 +96,9 @@ export default async function ProProfile() {
             <input id="photoUrl" name="photoUrl" type="url" maxLength={500}
               defaultValue={me.photoUrl ?? ''} style={fieldStyle} />
 
-            <label style={{
-              display: 'flex', alignItems: 'flex-start', gap: '.5rem',
-              marginTop: '.85rem', fontSize: 'var(--step--1)',
+            <label className="tick" style={{
+              alignItems: 'flex-start', marginTop: '.85rem',
+              fontSize: 'var(--step--1)',
             }}>
               <input type="checkbox" name="consent" value="yes"
                 defaultChecked={Boolean(me.photoConsentOn)} style={{ marginTop: '.2rem' }} />

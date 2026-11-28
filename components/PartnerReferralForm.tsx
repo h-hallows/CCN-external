@@ -205,9 +205,8 @@ export function PartnerReferralForm({
           </Field>
         </div>
 
-        <label style={{
-          display: 'flex', alignItems: 'flex-start', gap: '.5rem',
-          marginTop: '1.1rem', fontSize: 'var(--step--1)',
+        <label className="tick" style={{
+          alignItems: 'flex-start', marginTop: '1.1rem', fontSize: 'var(--step--1)',
         }}>
           <input
             type="checkbox" name="consentNote" required style={{ marginTop: '.2rem' }}

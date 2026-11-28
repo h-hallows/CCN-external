@@ -15,7 +15,7 @@ export default function Vetting() {
       <Section>
         <h1>What we check</h1>
         <Prose>
-          <p style={{ fontSize: 'var(--step-1)', color: 'var(--ink-2)' }}>
+          <p className="lede">
             Every credential is verified against the body that issued it, not against a
             copy handed to us. We record what was checked, when, and where it was checked.
           </p>

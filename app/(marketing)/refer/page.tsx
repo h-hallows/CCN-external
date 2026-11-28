@@ -58,7 +58,7 @@ export default async function Refer() {
     <Stack gap="lg">
       <Section title="Refer a patient" as="h1">
         <Prose>
-          <p style={{ fontSize: 'var(--step-1)', color: 'var(--ink-2)' }}>
+          <p className="lede">
             One form, no account, and a call back from a named person. If it is
             urgent, the phone is faster and we would rather you used it.
           </p>

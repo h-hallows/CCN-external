@@ -107,6 +107,13 @@
   --control-min-target: 44px;
 
   /*
+   * The height a field and a menu agree on, which is taller than the floor they must
+   * both clear. 50px is where `fieldStyle`'s own padding already put a text input, so
+   * this moves the select up to meet it rather than squeezing the input down.
+   */
+  --control-height: 3.125rem;
+
+  /*
    * How long a colour takes to change. One duration, because two would be a system
    * nobody asked for, and 140ms because it is long enough to be seen as a change and
    * short enough that a reader clicking through four pages never waits on it.
@@ -165,11 +172,52 @@ h1, h2, h3 {
   margin: 0 0 .5em;
 }
 h1 { font-size: var(--step-4); letter-spacing: -0.015em; }
-h2 { font-size: var(--step-3); letter-spacing: -0.01em; }
+/*
+ * --step-2 and not --step-3. The h1 computes to 60.5px and the h2 was 44.5px, a ratio
+ * of 1.36 against 2.6 for the h2-to-body step — so a page with five sections read as
+ * five competing titles over small text rather than as one title with sections under
+ * it. The scale already had the right rung; nothing here is a new size.
+ */
+h2 { font-size: var(--step-2); letter-spacing: -0.01em; }
 h3 { font-size: var(--step-1); }
 
 p, li { max-width: var(--measure); }
 p { margin: 0 0 1em; }
+
+/*
+ * LISTS. THIS WAS BROKEN RATHER THAN PLAIN, ON NINE PAGES.
+ *
+ * `@import 'tailwindcss'` at the top of this file brings Preflight with it, which sets
+ * `list-style: none; padding: 0; margin: 0` on every `ul` and `ol` — and nothing here
+ * ever put them back. Measured on `/how-it-works`: `list-style-type: none`,
+ * `padding-left: 0px`, and 0.0px between one `li` box and the next. So the five-step
+ * sequence that page is built around rendered as a single unbroken block of text, and
+ * the identical content on the home page looked completely different for the one
+ * reason that it is the only list on the site carrying `.steps`.
+ *
+ * The same defect ran through the six credentials on `/vetting`, "Who we work with" on
+ * `/for-partners`, both lists on `/privacy`, and — worst of the set — the list inside
+ * `components/StatutoryFooter.tsx`, which is required disclosure reading as run-on
+ * prose.
+ *
+ * `.steps` is excluded by specificity rather than by being named here: a class beats a
+ * type selector, so its own `list-style: none; padding: 0` keeps winning. The two
+ * portal lists that opt out with an inline `listStyle: 'none'` keep winning too, for
+ * the same reason an inline style always does.
+ *
+ * The marker takes `--ink-3`, which is a read colour on this site and clears 4.5:1 in
+ * both themes — the number should be quieter than the sentence, not invisible.
+ */
+ul:not(.steps),
+ol:not(.steps) {
+  padding-left: 1.4rem;
+  margin: 0 0 1em;
+}
+ul:not(.steps) { list-style: disc; }
+ol:not(.steps) { list-style: decimal; }
+ul:not(.steps) > li + li,
+ol:not(.steps) > li + li { margin-top: .5rem; }
+li::marker { color: var(--ink-3); }
 
 a { color: var(--accent); text-underline-offset: .18em; }
 a:hover { color: var(--accent-2); }
@@ -348,10 +396,36 @@ textarea,
    * The floor on the box, beside the floor on the text. A control may be taller; it
    * cannot be shorter, whatever its padding or its engine's own idea of a select.
    * Checkboxes and radios are excluded here for the same reason as above — their box is
-   * sized from the font and a 44px tick would change the availability grid for no gain;
-   * they are hit through their labels.
+   * sized from the font, so flooring the box itself would wreck the availability grid.
+   *
+   * "They are hit through their labels" is what this used to say next, and it was an
+   * assertion about markup that nothing had made true: the chips on `/apply` measured
+   * 33.7px and the consent row on `/refer` 22px. `.tick` below is where that sentence
+   * became a rule, and every checkbox and radio on the site now wears it.
    */
   min-height: var(--control-min-target);
+}
+
+/*
+ * ONE HEIGHT FOR A FIELD AND A MENU, WHICH ARE NOT THE SAME HEIGHT BY THEMSELVES.
+ *
+ * The floor above is a floor and does its job; this is about the ladder it leaves. An
+ * `input` takes its height from `fieldStyle`'s padding and line-height and computes to
+ * 49.9px. A `select` ignores the line-height entirely — its box is the engine's — and
+ * lands on the 44px floor instead. So every form on the site ran down the page at 44,
+ * 44, 44, 48.5, 48.5, 44, and two controls side by side in a row disagreed about where
+ * their bottom edge was.
+ *
+ * A separate rule rather than an edit to the floor, because the floor is the thing
+ * that must not move: `--control-min-target` stays exactly where it is and keeps being
+ * asserted on its own terms, and this adds a second, taller number on top of it for
+ * the two controls whose heights are supposed to match. The textarea is deliberately
+ * out — its height is its rows, and a minimum that tall would be a floor on a box the
+ * reader is meant to resize.
+ */
+input:not([type='checkbox']):not([type='radio']),
+select {
+  min-height: max(var(--control-min-target), var(--control-height));
 }
 
 /*
@@ -360,6 +434,64 @@ textarea,
  * content with flex, so a floor on the box leaves the label where it was.
  */
 .btn {
+  min-height: var(--control-min-target);
+}
+
+/*
+ * A TICKABLE ROW IS THE TARGET, AND THE TICK IS NOT THE TARGET.
+ *
+ * `app/globals.css` floors text inputs, selects and buttons at 44px and excludes
+ * checkboxes and radios on purpose — their box is sized from the font, and a 44px tick
+ * would wreck the availability grid for no gain. The sentence that exclusion rests on
+ * is "they are hit through their labels", and nothing had ever made that true: the
+ * thirty-four chips on `/apply` measured 33.7px with a 13x13px box inside them, and the
+ * consent row on `/refer` was a 13px box in a 22px line.
+ *
+ * That consent tick is the most legally consequential press on the public site. It is
+ * the record that a discharge planner confirmed the family agreed their details could
+ * be passed on — § 1812.5095 territory — and it was a thirteen-pixel square aimed at
+ * with a thumb, in a corridor, by somebody doing it between two other jobs.
+ *
+ * So the label gets the floor and the box gets enlarged to 1.15rem, which is big enough
+ * to read as tickable and small enough to leave the grid alone. The floor is on the row
+ * because that is what a finger actually lands on; `--control-min-target` is the same
+ * token every other control uses, so there is one number on the site and not two.
+ */
+.tick {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  min-height: var(--control-min-target);
+  padding-block: .35rem;
+}
+.tick input[type='checkbox'],
+.tick input[type='radio'] {
+  inline-size: 1.15rem;
+  block-size: 1.15rem;
+  flex: none;
+}
+
+/*
+ * THE HEADER'S OWN TARGETS, WHICH ARE THE DENSEST SET ON THE SITE.
+ *
+ * Five navigation links and a telephone number, measured at 22.1px tall — under even
+ * the 24px that WCAG 2.5.8 asks at AA, let alone the 44px this site sets itself. At
+ * 375px they wrap to two rows about twenty pixels apart, so the gap between "Rates" and
+ * "For providers" is smaller than the pad of a thumb.
+ *
+ * This was looked at once before and left, on the reasoning that a link in a line of
+ * text is exempt. That reasoning was wrong here: the inline exemption is for a target
+ * inside a sentence, whose size is constrained by the line-height of the prose around
+ * it. A flex row of navigation links is not a sentence and nothing constrains it.
+ *
+ * The telephone number matters most of the three. It is the one thing on the page for
+ * somebody with a discharge on Friday afternoon, the copy keeps saying the phone is
+ * faster than the form, and it was a 93x22px target.
+ */
+.site-head nav a,
+.site-head .head-actions a {
+  display: inline-flex;
+  align-items: center;
   min-height: var(--control-min-target);
 }
 
@@ -462,27 +594,63 @@ textarea,
 }
 .cta-title { font-family: var(--display); font-size: var(--step-1); color: var(--accent); }
 .cta-body { font-size: var(--step--1); color: var(--ink-2); line-height: 1.55; }
-.cta-go { margin-top: .5rem; color: var(--ink-3); }
+/*
+ * `auto` and not `.5rem`: the card is a flex column, so this pins the arrow to the
+ * bottom whatever the body above it measures. With a fixed margin the three door cards
+ * stood at the same height and their arrows did not — "Apply to be referred" has a
+ * two-line body where its neighbours have three, so its arrow floated 21.8px higher
+ * than the other two and the row read as misaligned.
+ */
+.cta-go { margin-top: auto; color: var(--ink-3); }
 .cta-card:hover .cta-go { color: var(--accent); }
 
 /*
  * The header. A row that wraps, with the one primary action held to the right where it
  * stays reachable on a phone without pushing the navigation off the screen.
  */
+/*
+ * THE HEADER, WHICH ON A PHONE WAS A QUARTER OF THE SCREEN.
+ *
+ * Measured at 375x812 it stood 205px tall before a word of content, and giving its
+ * links the 44px target they were missing would have pushed that to 251px. The height
+ * was never the links, though — it was three row gaps of 1rem, 2.2rem of block padding
+ * and a wrapped navigation, stacked.
+ *
+ * `align-items: center` and not `baseline`: once each link is a 44px flex box, baseline
+ * alignment lines up the text inside boxes of different heights and the row looks
+ * accidentally staggered.
+ *
+ * The row gap goes to zero because every child now carries its own 44px of height —
+ * the space between two wrapped rows of navigation is the links' own padding, which is
+ * the space a thumb needs rather than the space a designer liked.
+ *
+ * `margin-left: auto` is dropped below 52rem. It is what puts the telephone number and
+ * the button hard right on a wide screen, and on a phone, after the row has wrapped, it
+ * was pushing them to the right of their own empty row — 126px of blank paper beside
+ * the one action somebody with a discharge on Friday is looking for.
+ */
 .site-head {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: 1rem 1.5rem;
-  padding-block: 1.1rem;
+  align-items: center;
+  gap: 0 1.5rem;
+  padding-block: .55rem;
 }
-.site-head nav { display: flex; flex-wrap: wrap; gap: 1.25rem; font-size: var(--step--1); }
+.site-head nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 1.1rem;
+  font-size: var(--step--1);
+}
 .site-head .head-actions {
   margin-left: auto;
   display: flex;
   align-items: center;
   gap: 1rem;
   flex-wrap: wrap;
+}
+@media (max-width: 52rem) {
+  .site-head .head-actions { margin-left: 0; }
 }
 
 /*
@@ -547,7 +715,29 @@ textarea,
 .btn-primary:hover { background: var(--accent-2); border-color: var(--accent-2); color: var(--paper); }
 
 /* A long table scrolls inside this, so the page itself never does. */
-.scroller { overflow-x: auto; max-width: 100%; }
+/*
+ * THE HALF OF THE SCROLLING REGION THAT WAS NEVER DONE.
+ *
+ * `components/layout.tsx`'s `Scroller` solved the keyboard half carefully — tabIndex,
+ * role, an accessible name — and the visual half was left at `overflow-x: auto`. On
+ * `/pricing` at 375px that is a 343px window onto a 652px table: 47% of it off screen,
+ * four of the six credential columns invisible, and the table cut flush at the viewport
+ * edge in the middle of a cell. Nothing said there was more.
+ *
+ * A rule down the trailing edge and a short fade into `--paper`, so the table looks
+ * cut off on purpose. Decorative, so no contrast minimum applies to it; both tokens
+ * invert with the portal block. `background-attachment: local` on the fade is what
+ * makes it disappear once the reader has scrolled to the end — an affordance that
+ * stays after it has been taken is just a smudge.
+ */
+.scroller {
+  overflow-x: auto;
+  max-width: 100%;
+  background:
+    linear-gradient(to right, var(--line), transparent 1.75rem) left center / 100% 100% no-repeat local,
+    linear-gradient(to left, var(--line), transparent 1.75rem) right center / 100% 100% no-repeat local;
+  border-inline-end: 1px solid var(--line-2);
+}
 
 table { border-collapse: collapse; width: 100%; }
 th, td { text-align: left; padding: .6rem .75rem; border-bottom: 1px solid var(--line); }
@@ -558,8 +748,18 @@ th { font-size: var(--step--1); text-transform: uppercase; letter-spacing: .08em
  * Set in absolute points, not a rem that could inherit smaller down a nesting chain.
  */
 .statutory {
-  font-size: 9pt;
-  border-top: 1px solid var(--line);
+  /*
+   * 11pt, not 9. § 1812.5095(h) sets six point as a FLOOR and this moves away from it,
+   * which is the only direction this number is allowed to move. At 9pt the required
+   * disclosure computed to 12px in --ink-2 under a 1.3:1 rule: present on the page,
+   * and the least readable thing on it, for a readership that skews old.
+   *
+   * Still an absolute point size and deliberately not a rem — tests/statutory.test.ts
+   * requires that and is right to: a rem inherits, and a disclosure that shrinks
+   * because of where it was nested is a disclosure that stops meeting the floor.
+   */
+  font-size: 11pt;
+  border-top: 1px solid var(--line-2);
   margin-top: 4rem;
   padding: 1.5rem 0 3rem;
   color: var(--ink-2);

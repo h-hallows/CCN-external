@@ -51,7 +51,7 @@ export default async function ProAvailability() {
                         const slot = `${day}:${block}`;
                         return (
                           <td key={day} style={{ textAlign: 'center' }}>
-                            <label style={{ display: 'inline-flex', padding: '.25rem' }}>
+                            <label className="tick">
                               <span className="visually-hidden">
                                 {day} {BLOCK_LABEL[block] ?? block}
                               </span>

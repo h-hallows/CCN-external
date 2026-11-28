@@ -87,7 +87,7 @@ export default async function Pricing() {
       <Section>
         <h1>Rates and fees</h1>
         <Prose>
-          <p style={{ fontSize: 'var(--step-1)', color: 'var(--ink-2)' }}>
+          <p className="lede">
             Two different things, and they are not both ours. The provider sets their
             rate and agrees it with you directly. Our fee is what we charge the
             household for finding them, and it is the only money we take.

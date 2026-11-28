@@ -16,7 +16,7 @@ export default function ForPartners() {
       <Section>
         <h1>For discharge planners and advisers</h1>
         <Prose>
-          <p style={{ fontSize: 'var(--step-1)', color: 'var(--ink-2)' }}>
+          <p className="lede">
             If you are placing somebody going home and you need to know a person will
             actually pick up, this is what we are for. One step to refer, no account, and
             a same-day acknowledgement from a named person with a direct line.

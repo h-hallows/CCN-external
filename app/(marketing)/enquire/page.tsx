@@ -47,7 +47,7 @@ async function Body({
     <Stack gap="lg">
       <Section title="Arrange care" as="h1">
         <Prose>
-          <p style={{ fontSize: 'var(--step-1)', color: 'var(--ink-2)' }}>
+          <p className="lede">
             Tell us what is needed. We will call you back, ask the questions that
             actually decide it, and put forward the two or three people who fit.
           </p>

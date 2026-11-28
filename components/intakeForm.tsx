@@ -242,7 +242,31 @@ export function Group({
       aria-describedby={describedBy || undefined}
       {...(bad ? { 'aria-invalid': true } : {})}
     >
-      <legend style={{ fontSize: 'var(--step-0)' }}>{legend}</legend>
+      {/*
+        * THE GROUP HEADING LOOKED EXACTLY LIKE A SENTENCE.
+        *
+        * It computed to 16.96px, weight 400, in the body face and --ink — the same as
+        * the paragraph above it — so "What you need", "How to reach you" and "Anything
+        * else" carried no more weight than prose, and a fourteen-field form read as one
+        * flat run of boxes instead of three short stages. A long form that shows its
+        * stages is a shorter form to the person filling it in.
+        *
+        * The display face at --step-1 rather than `.label`: `.label` is what every
+        * field's own label is set in, three lines below, and a group heading that
+        * matches its children is not a hierarchy. The rule under it is the same
+        * hairline a card uses.
+        */}
+      <legend style={{
+        fontFamily: 'var(--display)',
+        fontSize: 'var(--step-1)',
+        color: 'var(--ink)',
+        paddingBottom: '.4rem',
+        marginBottom: '.5rem',
+        borderBottom: '1px solid var(--line)',
+        width: '100%',
+      }}>
+        {legend}
+      </legend>
       {hint ? (
         <p id={hintId} style={{
           fontSize: 'var(--step--1)', color: 'var(--ink-3)', margin: '.4rem 0 0',

@@ -331,3 +331,82 @@ describe('the fix is never to forbid zooming', () => {
     expect(viewport![1]).toMatch(/initialScale:\s*1\b/);
   });
 });
+
+describe('a tick is hit through its label, which is the thing that has to be 44px', () => {
+  /*
+   * THE SENTENCE THAT WAS NOT A RULE.
+   *
+   * `app/globals.css` floors inputs, selects and buttons and excludes checkboxes and
+   * radios on purpose: their box is sized from the font, so flooring the box would
+   * wreck the availability grid. The exclusion rested on one sentence — "they are hit
+   * through their labels" — and nothing had ever made it true. Measured in a browser:
+   * the thirty-four chips on `/apply` were 33.7px with a 13x13px box, and the consent
+   * row on `/refer` was a 13px box in a 22px line. That consent tick is the record that
+   * a discharge planner confirmed the family agreed their details could be passed on.
+   *
+   * `.tick` is where the sentence became a rule. This asserts both halves: that the
+   * class carries the floor, and that every checkbox and radio in the application is
+   * inside a label wearing it — so the next form inherits the floor rather than
+   * rediscovering it, which is the distinction the file above keeps drawing.
+   */
+  it('.tick declares the floor, and sizes the box so it can be seen', () => {
+    const rule = /\.tick\s*\{([^}]*)\}/.exec(css);
+    expect(rule, 'app/globals.css declares no .tick').toBeTruthy();
+    expect(
+      rule![1],
+      '.tick does not carry the target floor, so a label wearing it is whatever its '
+      + 'text happens to measure — which on /apply was 33.7px',
+    ).toMatch(/min-height:\s*var\(--control-min-target\)/);
+
+    const box = /\.tick input\[type='checkbox'\][^{]*\{([^}]*)\}/.exec(css);
+    expect(box, 'nothing sizes the box inside a .tick').toBeTruthy();
+    expect(box![1], 'the box has no size, so it stays at the engine default of 13px')
+      .toMatch(/inline-size:/);
+  });
+
+  it('the header links clear the floor too', () => {
+    const rule = /\.site-head nav a[^{]*\{([^}]*)\}/.exec(css);
+    expect(
+      rule,
+      'no rule floors the header links. Five navigation links and a telephone number '
+      + 'measured 22.1px tall — under even the 24px WCAG 2.5.8 asks at AA — and at '
+      + '375px they wrap to two rows twenty pixels apart.',
+    ).toBeTruthy();
+    expect(rule![1]).toMatch(/min-height:\s*var\(--control-min-target\)/);
+  });
+
+  it('every checkbox and radio sits inside a label that carries .tick', () => {
+    const TICKABLE = /<input\b[^>]*type="(?:checkbox|radio)"[^>]*>/g;
+    let found = 0;
+
+    for (const file of sourceFiles) {
+      const src = code(file);
+      for (const match of src.matchAll(TICKABLE)) {
+        found += 1;
+        /*
+         * The nearest `<label` before it, and no `</label>` in between — which is what
+         * "inside" means for markup this file reads as text rather than as a tree.
+         */
+        const before = src.slice(0, match.index);
+        const open = before.lastIndexOf('<label');
+        const close = before.lastIndexOf('</label>');
+        expect(
+          open > close,
+          `${file}: a ${match[0].includes('radio') ? 'radio' : 'checkbox'} is not `
+          + 'inside a label at all, so there is nothing to hit it through.',
+        ).toBe(true);
+        const tag = src.slice(open, src.indexOf('>', open) + 1);
+        expect(
+          /className="tick"|className={`tick/.test(tag),
+          `${file}: a checkbox or radio is in a label with no "tick" class, so the row `
+          + 'is whatever its text measures. A 13px box aimed at with a thumb is not a '
+          + 'target; --control-min-target is 44px and .tick is how a label gets it.',
+        ).toBe(true);
+      }
+    }
+
+    // Seven as this is written. A floor of five so the rule cannot pass by matching
+    // nothing if the forms are ever restructured.
+    expect(found, 'found no checkboxes or radios to check').toBeGreaterThanOrEqual(5);
+  });
+});
